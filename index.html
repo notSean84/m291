@@ -2,130 +2,15 @@
 <html lang="de">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="css/styles.css">
-    <title>Dashboard - Projektorganisation</title>
-
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="css/styles.css" />
     <script src="js/script.js"></script>
-
-    <script type="module">
-        import { createApp, ref, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
-
-        const apiUrl = 'https://projects.sbw.media/'
-
-        createApp({
-            setup() {
-                const timesheetView = ref([])
-                const students = ref([])
-                const projects = ref([])
-                const isLoading = ref(false)
-                const error = ref(null)
-                const showPopupRecord = ref(false)
-
-                const newEntry = ref({
-                    projectName: '',
-                    studentName: '',
-                    date: '',
-                    hours: ''
-                })
-
-                async function fetchData() {
-                    try {
-                        const [ts, st, pr] = await Promise.all([
-                            fetch(apiUrl + 'TimesheetView'),
-                            fetch(apiUrl + 'Student'),
-                            fetch(apiUrl + 'Project')
-                        ])
-
-                        if (!ts.ok || !st.ok || !pr.ok) throw new Error('Fehler beim Laden der Daten')
-
-                        const tsData = await ts.json()
-                        const stData = await st.json()
-                        const prData = await pr.json()
-
-                        timesheetView.value = tsData.resources || tsData
-                        students.value = stData.resources || stData
-                        projects.value = prData.resources || prData
-                    } catch (err) {
-                        error.value = err.message
-                        console.error('API-Fehler:', err)
-                    }
-                }
-
-                function formatDate(dateString) {
-                    const date = new Date(dateString)
-                    return date.toLocaleDateString('de-CH')
-                }
-
-                function formatHours(minutes) {
-                    return (minutes / 60).toFixed(1)
-                }
-
-                async function saveTimesheet() {
-                    try {
-                        const student = students.value.find(s => s.fullname === newEntry.value.studentName)
-                        const project = projects.value.find(p => p.Name === newEntry.value.projectName)
-
-                        if (!student || !project) {
-                            alert('Bitte gültigen Studenten und ein Projekt wählen')
-                            return
-                        }
-
-                        const payload = {
-                            ProjectID: project.ID,
-                            StudentID: student.id,
-                            Date: newEntry.value.date,
-                            Minutes: parseFloat(newEntry.value.hours) * 60
-                        }
-
-                        const response = await fetch(apiUrl + 'Timesheet', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        })
-
-                        if (!response.ok) throw new Error('Fehler beim Speichern')
-
-                        alert('Zeiterfassung erfolgreich hinzugefügt')
-                        showPopupRecord.value = false
-                        await fetchData() // neu laden
-                    } catch (err) {
-                        alert('Fehler: ' + err.message)
-                    }
-                }
-
-                onMounted(fetchData)
-
-                return {
-                    timesheetView,
-                    isLoading,
-                    error,
-                    formatDate,
-                    formatHours,
-                    showPopupRecord,
-                    newEntry,
-                    students,
-                    projects,
-                    saveTimesheet
-                }
-            }
-        }).mount('#app')
-    </script>
-
-    <script type="module">
-        import { initNavigation } from './js/navigation.js';
-        import { createApp, ref, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
-        // Navigation initialisieren
-        document.addEventListener('DOMContentLoaded', initNavigation);
-    </script>
-
-
+    <title>Dashboard - Projektorganisation</title>
 </head>
 
 <body>
     <nav class="side-bar">
-
         <section class="navigation">
             <section class="side-bar-title">
                 <h1>Projektzeit</h1>
@@ -133,7 +18,7 @@
             <ul class="side-bar-list">
                 <li class="side-bar-list-item"><a href="#dashboard" class="active">Dashboard</a></li>
                 <li class="side-bar-list-item"><a href="#recording">Zeiterfassung</a></li>
-                <li class="side-bar-list-item"><a href="#approval">Bewilligung</a></li>
+                <li class="side-bar-list-item" id="approval-nav"><a href="#approval">Bewilligung</a></li>
                 <li class="side-bar-list-item"><a href="#projects">Projekte</a></li>
                 <li class="side-bar-list-item"><a href="#allocation">Zuweisungen</a></li>
             </ul>
@@ -146,11 +31,18 @@
             <select class="name-select" id="name">
                 <option disabled selected hidden>Name</option>
             </select>
+
+
+
             <button class="user-login-button" id="user-login-button">LogIn</button>
+            <div class="checkbox-wrapper">
+                <p class="admin-toggle-label">Admin</p>
+                <div>
+                    <input class="tgl tgl-ios" id="admin-toggle" type="checkbox" />
+                    <label class="tgl-btn" for="admin-toggle" data-tg-off="Student" data-tg-on="Admin"></label>
+                </div>
+            </div>
         </section>
-
-
-
     </nav>
 
     <main id="app">
@@ -191,6 +83,7 @@
             </section>
             <section class="section">
                 <p v-if="error" style="color:red">{{ error }}</p>
+
                 <table v-if="timesheetView.length > 0">
                     <thead>
                         <tr>
@@ -198,36 +91,42 @@
                             <th>Datum</th>
                             <th>Stunden</th>
                             <th>Student</th>
+                            <th>Aktion</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-for="item in timesheetView" :key="item.ID">
-                            <td>{{ item.projectname }}</td>
+                            <td>{{ item.ProjectName }}</td>
                             <td>{{ formatDate(item.Date) }}</td>
                             <td>{{ formatHours(item.Minutes) }}</td>
                             <td>{{ item.Fullname }}</td>
+                            <td class="actions">
+                                <button class="edit-btn" @click="editEntry(item)">✍️</button>
+                                <button class="delete-btn" @click="deleteEntry(item.ID)">❌</button>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
             </section>
-            <!-- Popup -->
+
+            <!-- Popup: Timesheet -->
             <div v-if="showPopupRecord" class="popup-overlay">
                 <div class="popup">
-                    <h3>Neue Zeiterfassung</h3>
+                    <h3>{{ isEditing ? 'Zeiterfassung bearbeiten' : 'Neue Zeiterfassung' }}</h3>
                     <label>Projekt</label>
-                    <select v-model="newEntry.projectName">
+                    <select v-model="newEntry.ProjectName">
                         <option disabled value="">Projekt auswählen</option>
                         <option v-for="p in projects" :key="p.ID">{{ p.Name }}</option>
                     </select>
                     <label>Student</label>
                     <select v-model="newEntry.studentName">
                         <option disabled value="">Student auswählen</option>
-                        <option v-for="s in students" :key="s.id">{{ s.fullname }}</option>
+                        <option v-for="s in students" :key="s.ID">{{ s.Fullname }}</option>
                     </select>
                     <label>Datum</label>
-                    <input type="date" v-model="newEntry.date">
+                    <input type="date" v-model="newEntry.date" />
                     <label>Stunden</label>
-                    <input type="number" min="0" step="0.25" v-model="newEntry.hours">
+                    <input type="number" min="0" step="0.25" v-model="newEntry.hours" />
                     <div class="popup-actions">
                         <button @click="showPopupRecord = false" style="background:#64748b">Abbrechen</button>
                         <button @click="saveTimesheet">Speichern</button>
@@ -243,57 +142,81 @@
             </section>
         </section>
 
-        <section class="projects" id="projects">
+        <!-- Projekte -->
+        <section class="recording" id="projects">
             <section class="site-header">
                 <h2>Projekte</h2>
-                <button class="site-header-button" @click="showPopupRecord = true">+ Neues Projekt</button>
+                <button class="site-header-button" @click="openProjectCreate">+ Neues Projekt</button>
             </section>
+
             <section class="section">
-                <p v-if="error" style="color:red">{{ error }}</p>
-                <table v-if="timesheetView.length > 0">
+                <p v-if="projectError" style="color:red">{{ projectError }}</p>
+
+                <table v-if="projects.length > 0">
                     <thead>
                         <tr>
-                            <th>Projekt</th>
-                            <th>Mitarbeiter</th>
-                            <th>Start</th>
-                            <th>Student</th>
+                            <th>Nr.</th>
+                            <th>Name</th>
+                            <th>Coach</th>
+                            <th>Typ</th>
+                            <th>Kunde</th>
+                            <th>Aktion</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="item in timesheetView" :key="item.ID">
-                            <td>{{ item.ProjectName }}</td>
-                            <td>{{ formatDate(item.Date) }}</td>
-                            <td>{{ formatHours(item.Minutes) }}</td>
-                            <td>{{ item.Fullname }}</td>
+                        <tr v-for="p in projects" :key="p.ID">
+                            <td>{{ p.Number || '—' }}</td>
+                            <td>{{ p.Name }}</td>
+                            <td>{{ p.Coach || '—' }}</td>
+                            <td>{{ typeName(p.TypeID) }}</td>
+                            <td>{{ customerName(p.CustomerID) }}</td>
+                            <td class="actions">
+                                <button class="edit-btn" @click="editProject(p)">✍️</button>
+                                <button class="delete-btn" @click="deleteProject(p.ID)">❌</button>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
+
+                <p v-else style="color: var(--text-muted)">Keine Projekte gefunden.</p>
             </section>
-            <!-- Popup -->
-            <div v-if="showPopupRecord" class="popup-overlay">
+
+            <!-- Popup: Projekt anlegen/bearbeiten -->
+            <div v-if="showProjectPopup" class="popup-overlay">
                 <div class="popup">
-                    <h3>Neue Zeiterfassung</h3>
-                    <label>Projekt</label>
-                    <select v-model="newEntry.projectName">
-                        <option disabled value="">Projekt auswählen</option>
-                        <option v-for="p in projects" :key="p.ID">{{ p.Name }}</option>
+                    <h3>{{ isEditingProject ? 'Projekt bearbeiten' : 'Neues Projekt' }}</h3>
+
+                    <label>Nummer</label>
+                    <input type="text" v-model="projectForm.Number" placeholder="z. B. P-2025-001" />
+
+                    <label>Name</label>
+                    <input type="text" v-model="projectForm.Name" placeholder="Projektname" />
+
+                    <label>Beschreibung</label>
+                    <input type="text" v-model="projectForm.Description" placeholder="Kurzbeschreibung" />
+
+                    <label>Coach</label>
+                    <input type="text" v-model="projectForm.Coach" placeholder="Coach-Name" />
+                    <label>Typ</label>
+                    <select v-model.number="projectForm.TypeID">
+                        <option :value="0" disabled>Typ auswählen</option>
+                        <option v-for="t in projectTypes" :key="t.ID" :value="t.ID">{{ t.Name }}</option>
                     </select>
-                    <label>Student</label>
-                    <select v-model="newEntry.studentName">
-                        <option disabled value="">Student auswählen</option>
-                        <option v-for="s in students" :key="s.id">{{ s.fullname }}</option>
+                    <label>Kunde</label>
+                    <select v-model.number="projectForm.CustomerID">
+                        <option :value="0" disabled>Kunde auswählen</option>
+                        <option v-for="c in customers" :key="c.ID" :value="c.ID">{{ c.Name }}</option>
                     </select>
-                    <label>Datum</label>
-                    <input type="date" v-model="newEntry.date">
-                    <label>Stunden</label>
-                    <input type="number" min="0" step="0.25" v-model="newEntry.hours">
+
+                    <label>ParentID</label>
+                    <input type="number" v-model.number="projectForm.ParentID" min="0" />
+
                     <div class="popup-actions">
-                        <button @click="showPopupRecord = false" style="background:#64748b">Abbrechen</button>
-                        <button @click="saveTimesheet">Speichern</button>
+                        <button @click="closeProjectPopup" style="background:#64748b">Abbrechen</button>
+                        <button @click="saveProject">Speichern</button>
                     </div>
                 </div>
             </div>
-
         </section>
 
         <section class="allocation" id="allocation">
@@ -303,6 +226,334 @@
             </section>
         </section>
     </main>
+
+    <!-- Vue App (GENAU EINMAL) -->
+    <script type="module">
+        import { createApp, ref, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+
+        const apiUrl = 'https://projects.sbw.media/'
+
+        createApp({
+            setup() {
+                /* ---------- Timesheets ---------- */
+                const timesheetView = ref([])
+                const students = ref([])
+                const projects = ref([]) // wird auch von der Projekt-Tabelle verwendet
+                const projectTypes = ref([])
+                const customers = ref([])
+                const isLoading = ref(false)
+                const error = ref(null)
+                const showPopupRecord = ref(false)
+
+                const newEntry = ref({
+                    ID: null,
+                    ProjectName: '',
+                    studentName: '',
+                    date: '',
+                    hours: ''
+                })
+                const isEditing = ref(false)
+
+                /* ---------- Projekte ---------- */
+                const showProjectPopup = ref(false)
+                const isEditingProject = ref(false)
+                const projectError = ref(null)
+                const projectForm = ref({
+                    ID: null,
+                    ParentID: 0,
+                    Number: '',
+                    Name: '',
+                    Description: '',
+                    TypeID: 0,
+                    CustomerID: 0,
+                    Coach: '',
+                    Status: 0
+                })
+
+                /* ---------- Gemeinsames Laden ---------- */
+                async function fetchData() {
+                    try {
+                        isLoading.value = true
+                        const [ts, st, pr, pt, cu] = await Promise.all([
+                            fetch(apiUrl + 'TimesheetView'),
+                            fetch(apiUrl + 'Student'),
+                            fetch(apiUrl + 'Project'),
+                            fetch(apiUrl + 'Projecttype'),
+                            fetch(apiUrl + 'CustomerView')
+                        ])
+
+                        if (!ts.ok || !st.ok || !pr.ok || !pt.ok || !cu.ok) throw new Error('Fehler beim Laden der Daten')
+
+                        const tsData = await ts.json()
+                        const stData = await st.json()
+                        const prData = await pr.json()
+                        const ptData = await pt.json()
+                        const cuData = await cu.json()
+
+                        timesheetView.value = tsData.resources || tsData
+                        students.value = stData.resources || stData
+                        projects.value = prData.resources || prData
+                        projectTypes.value = ptData.resources || ptData
+                        customers.value = cuData.resources || cuData
+                    } catch (err) {
+                        error.value = err.message
+                        console.error('API-Fehler:', err)
+                    } finally {
+                        isLoading.value = false
+                    }
+                }
+
+                /* ---------- Timesheet Helfer ---------- */
+                function formatDate(dateString) {
+                    const date = new Date(dateString)
+                    return isNaN(date.getTime()) ? '' : date.toLocaleDateString('de-CH')
+                }
+
+                function formatHours(minutes) {
+                    const val = Number(minutes)
+                    return isNaN(val) ? '0.0' : (val / 60).toFixed(1)
+                }
+
+                async function saveTimesheet() {
+                    try {
+                        const student = students.value.find(s => s.Fullname === newEntry.value.studentName)
+                        const project = projects.value.find(p => p.Name === newEntry.value.ProjectName)
+
+                        if (!student || !project) {
+                            alert('Bitte gültigen Studenten und ein Projekt wählen')
+                            return
+                        }
+
+                        const payload = {
+                            ProjectID: project.ID,
+                            StudentID: student.ID,
+                            Date: newEntry.value.date,
+                            Minutes: parseFloat(newEntry.value.hours) * 60
+                        }
+
+                        let response
+                        if (isEditing.value && newEntry.value.ID) {
+                            response = await fetch(apiUrl + 'Timesheet/' + newEntry.value.ID, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            })
+                        } else {
+                            response = await fetch(apiUrl + 'Timesheet', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            })
+                        }
+
+                        if (!response.ok) throw new Error('Fehler beim Speichern')
+
+                        alert(isEditing.value ? 'Eintrag erfolgreich bearbeitet' : 'Zeiterfassung erfolgreich hinzugefügt')
+                        showPopupRecord.value = false
+                        isEditing.value = false
+                        newEntry.value = { ID: null, ProjectName: '', studentName: '', date: '', hours: '' }
+                        await fetchData()
+                    } catch (err) {
+                        alert('Fehler: ' + err.message)
+                    }
+                }
+
+                function editEntry(item) {
+                    newEntry.value = {
+                        ID: item.ID,
+                        ProjectName: item.ProjectName,
+                        studentName: item.Fullname,
+                        date: (item.Date || '').split('T')[0],
+                        hours: (item.Minutes / 60).toFixed(1)
+                    }
+                    isEditing.value = true
+                    showPopupRecord.value = true
+                }
+
+                async function deleteEntry(id) {
+                    if (!confirm('Willst du diesen Eintrag wirklich löschen?')) return
+                    try {
+                        const response = await fetch(apiUrl + 'Timesheet/' + id, { method: 'DELETE' })
+                        if (!response.ok) throw new Error('Fehler beim Löschen')
+                        timesheetView.value = timesheetView.value.filter(entry => entry.ID !== id)
+                        alert('Eintrag erfolgreich gelöscht')
+                    } catch (err) {
+                        alert('Fehler: ' + err.message)
+                    }
+                }
+
+                /* ---------- Lookups ---------- */
+                function typeName(id) {
+                    const t = projectTypes.value.find(x => Number(x.ID) === Number(id))
+                    return t ? t.Name : '—'
+                }
+                function customerName(id) {
+                    const c = customers.value.find(x => Number(x.ID) === Number(id))
+                    return c ? c.Name : '—'
+                }
+
+                /* ---------- Projekt-Methoden ---------- */
+                function openProjectCreate() {
+                    isEditingProject.value = false
+                    projectError.value = null
+                    projectForm.value = {
+                        ID: null,
+                        ParentID: 0,
+                        Number: '',
+                        Name: '',
+                        Description: '',
+                        TypeID: 0,
+                        CustomerID: 0,
+                        Coach: '',
+                        Status: 0
+                    }
+                    showProjectPopup.value = true
+                }
+
+                function editProject(p) {
+                    isEditingProject.value = true
+                    projectError.value = null
+                    projectForm.value = {
+                        ID: p.ID,
+                        ParentID: p.ParentID ?? 0,
+                        Number: p.Number ?? '',
+                        Name: p.Name ?? '',
+                        Description: p.Description ?? '',
+                        TypeID: p.TypeID ?? 0,
+                        CustomerID: p.CustomerID ?? 0,
+                        Coach: p.Coach ?? '',
+                        Status: p.Status ?? 0
+                    }
+                    showProjectPopup.value = true
+                }
+
+                function closeProjectPopup() {
+                    showProjectPopup.value = false
+                }
+
+                async function saveProject() {
+                    try {
+                        projectError.value = null
+
+                        if (!projectForm.value.Name || projectForm.value.Name.trim() === '') {
+                            projectError.value = 'Bitte einen Projektnamen angeben.'
+                            return
+                        }
+
+                        const payload = {
+                            ParentID: Number(projectForm.value.ParentID) || 0,
+                            Number: projectForm.value.Number || '',
+                            Name: projectForm.value.Name,
+                            Description: projectForm.value.Description || '',
+                            TypeID: Number(projectForm.value.TypeID) || 0,
+                            CustomerID: Number(projectForm.value.CustomerID) || 0,
+                            Coach: projectForm.value.Coach || '',
+                            Status: Number(projectForm.value.Status) || 0
+                        }
+
+                        let response
+                        if (isEditingProject.value && projectForm.value.ID) {
+                            response = await fetch(apiUrl + 'Project/' + projectForm.value.ID, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            })
+                        } else {
+                            response = await fetch(apiUrl + 'Project', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            })
+                        }
+
+                        if (!response.ok) throw new Error('Fehler beim Speichern des Projekts')
+
+                        showProjectPopup.value = false
+                        isEditingProject.value = false
+                        await fetchData()
+                        alert('Projekt gespeichert')
+                    } catch (err) {
+                        projectError.value = err.message
+                        console.error('Projekt-API-Fehler:', err)
+                    }
+                }
+
+                async function deleteProject(id) {
+                    if (!confirm('Willst du dieses Projekt wirklich löschen?')) return
+                    try {
+                        const res = await fetch(apiUrl + 'Project/' + id, { method: 'DELETE' })
+                        if (!res.ok) throw new Error('Fehler beim Löschen des Projekts')
+                        projects.value = projects.value.filter(p => p.ID !== id)
+                        alert('Projekt gelöscht')
+                    } catch (err) {
+                        projectError.value = err.message
+                        console.error('Projekt-API-Fehler:', err)
+                    }
+                }
+
+                onMounted(() => {
+                    fetchData()
+                    initNavigation()
+                })
+
+                // Kleine, robuste Navigation (ersetzt externes navigation.js).
+                function initNavigation() {
+                    const links = Array.from(document.querySelectorAll('.side-bar-list a'))
+                    const sections = Array.from(document.querySelectorAll('main > section'))
+                    if (!links.length || !sections.length) return
+
+                    function activate(hash) {
+                        const target = hash && hash.startsWith('#') ? hash.slice(1) : 'dashboard'
+                        // Links aktiv setzen
+                        links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + target))
+                        // Sections aktiv setzen
+                        sections.forEach(sec => sec.classList.toggle('active', sec.id === target))
+                    }
+
+                    // Initial
+                    activate(location.hash || '#dashboard')
+                    // Link-Klicks
+                    links.forEach(a => a.addEventListener('click', () => setTimeout(() => activate(location.hash), 0)))
+                    // Hash-Änderungen (z. B. Back/Forward)
+                    window.addEventListener('hashchange', () => activate(location.hash))
+                }
+
+                return {
+                    /* Timesheets */
+                    timesheetView,
+                    students,
+                    projects,
+                    isLoading,
+                    error,
+                    showPopupRecord,
+                    newEntry,
+                    isEditing,
+                    formatDate,
+                    formatHours,
+                    saveTimesheet,
+                    editEntry,
+                    deleteEntry,
+
+                    /* Projekte */
+                    projectError,
+                    showProjectPopup,
+                    isEditingProject,
+                    projectForm,
+                    openProjectCreate,
+                    editProject,
+                    closeProjectPopup,
+                    saveProject,
+                    deleteProject,
+
+                    /* Lookups */
+                    projectTypes,
+                    customers,
+                    typeName,
+                    customerName
+                }
+            }
+        }).mount('#app')
+    </script>
 </body>
 
 </html>
