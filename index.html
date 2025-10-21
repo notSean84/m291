@@ -127,7 +127,7 @@
         </section>
         <ul class="side-bar-list">
             <li class="side-bar-list-item"><a href="#dashboard" class="active">Dashboard</a></li>
-            <li class="side-bar-list-item"><a href="#time-recording">Zeiterfassung</a></li>
+            <li class="side-bar-list-item"><a href="#recording">Zeiterfassung</a></li>
             <li class="side-bar-list-item"><a href="#approval">Bewilligung</a></li>
             <li class="side-bar-list-item"><a href="#projects">Projekte</a></li>
             <li class="side-bar-list-item"><a href="#allocation">Zuweisungen</a></li>
@@ -163,10 +163,12 @@
             </section>
         </section>
 
-        <section class="time-recording" id="time-recording">
-            <section class="section">
-                <h3>Zeiterfassung</h3>
+        <section class="recording" id="recording">
+            <section class="recording-header">
+                <h2>Zeiterfassung</h2>
                 <button class="recording-button" @click="showPopup = true">+ Neue Zeiterfassung</button>
+            </section>
+            <section class="section">
                 <p v-if="error" style="color:red">{{ error }}</p>
                 <table v-if="timesheetView.length > 0">
                     <thead>

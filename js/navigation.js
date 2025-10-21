@@ -25,7 +25,7 @@ export function initNavigation() {
             // Entsprechende Sektion einblenden
             const sectionMap = {
                 'Dashboard': 'dashboard',
-                'Zeiterfassung': 'time-recording',
+                'Zeiterfassung': 'recording',
                 'Bewilligung': 'approval',
                 'Projekte': 'projects',
                 'Zuweisungen': 'allocation'

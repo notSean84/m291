@@ -141,8 +141,15 @@ h2 {
   margin-bottom: var(--spacing);
 }
 
+.recording-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
 .recording-button {
   margin-bottom: 1rem;
+  font-weight: bold;
   background: #16a34a;
   color: white;
   padding: 0.75rem 1rem;
@@ -227,3 +234,5 @@ button {
   justify-content: flex-end;
   gap: 0.5rem;
 }
+
+
