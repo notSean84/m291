@@ -2,6 +2,7 @@
   --bg-color: #f8fafc;
   --sidebar-bg: #ffffff;
   --sidebar-active: #2563eb;
+  --sidebar-active-rgb: 37, 99, 235;
   --sidebar-text: #334155;
   --card-bg: #ffffff;
   --text-dark: #0f172a;
@@ -63,12 +64,23 @@ main>section.active {
   color: var(--sidebar-text);
   text-decoration: none;
   font-weight: 500;
+  transition: 0.3s; 
 }
 
-.side-bar-list-item a:hover,
+
 .side-bar-list-item a.active {
   background: var(--sidebar-active);
   color: white;
+}
+
+.side-bar-list-item a.active:hover {
+  background: var(--sidebar-active);
+  color: white;
+}
+
+.side-bar-list-item a:hover {
+  background: rgba(var(--sidebar-active-rgb), 0.5);;
+    color: black;
 }
 
 /* Dashboard main */
