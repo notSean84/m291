@@ -2,213 +2,226 @@
 <html lang="de">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="styles.css">
-  <title>Dashboard - Projektorganisation</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/styles.css">
+    <title>Dashboard - Projektorganisation</title>
 
-  <script type="module">
-    import { createApp, ref, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+    <script type="module">
+        import { createApp, ref, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
 
-    const apiUrl = 'https://projects.sbw.media/'
+        const apiUrl = 'https://projects.sbw.media/'
 
-    createApp({
-      setup() {
-        const timesheetView = ref([])
-        const students = ref([])
-        const projects = ref([])
-        const isLoading = ref(false)
-        const error = ref(null)
-        const showPopup = ref(false)
+        createApp({
+            setup() {
+                const timesheetView = ref([])
+                const students = ref([])
+                const projects = ref([])
+                const isLoading = ref(false)
+                const error = ref(null)
+                const showPopup = ref(false)
 
-        const newEntry = ref({
-          projectName: '',
-          studentName: '',
-          date: '',
-          hours: ''
-        })
+                const newEntry = ref({
+                    projectName: '',
+                    studentName: '',
+                    date: '',
+                    hours: ''
+                })
 
-        async function fetchData() {
-          try {
-            const [ts, st, pr] = await Promise.all([
-              fetch(apiUrl + 'TimesheetView'),
-              fetch(apiUrl + 'Student'),
-              fetch(apiUrl + 'Project')
-            ])
+                async function fetchData() {
+                    try {
+                        const [ts, st, pr] = await Promise.all([
+                            fetch(apiUrl + 'TimesheetView'),
+                            fetch(apiUrl + 'Student'),
+                            fetch(apiUrl + 'Project')
+                        ])
 
-            if (!ts.ok || !st.ok || !pr.ok) throw new Error('Fehler beim Laden der Daten')
+                        if (!ts.ok || !st.ok || !pr.ok) throw new Error('Fehler beim Laden der Daten')
 
-            const tsData = await ts.json()
-            const stData = await st.json()
-            const prData = await pr.json()
+                        const tsData = await ts.json()
+                        const stData = await st.json()
+                        const prData = await pr.json()
 
-            timesheetView.value = tsData.resources || tsData
-            students.value = stData.resources || stData
-            projects.value = prData.resources || prData
-          } catch (err) {
-            error.value = err.message
-            console.error('API-Fehler:', err)
-          }
-        }
+                        timesheetView.value = tsData.resources || tsData
+                        students.value = stData.resources || stData
+                        projects.value = prData.resources || prData
+                    } catch (err) {
+                        error.value = err.message
+                        console.error('API-Fehler:', err)
+                    }
+                }
 
-        function formatDate(dateString) {
-          const date = new Date(dateString)
-          return date.toLocaleDateString('de-CH')
-        }
+                function formatDate(dateString) {
+                    const date = new Date(dateString)
+                    return date.toLocaleDateString('de-CH')
+                }
 
-        function formatHours(minutes) {
-          return (minutes / 60).toFixed(1)
-        }
+                function formatHours(minutes) {
+                    return (minutes / 60).toFixed(1)
+                }
 
-        async function saveTimesheet() {
-          try {
-            const student = students.value.find(s => s.fullname === newEntry.value.studentName)
-            const project = projects.value.find(p => p.Name === newEntry.value.projectName)
+                async function saveTimesheet() {
+                    try {
+                        const student = students.value.find(s => s.fullname === newEntry.value.studentName)
+                        const project = projects.value.find(p => p.Name === newEntry.value.projectName)
 
-            if (!student || !project) {
-              alert('Bitte gültigen Studenten und ein Projekt wählen')
-              return
+                        if (!student || !project) {
+                            alert('Bitte gültigen Studenten und ein Projekt wählen')
+                            return
+                        }
+
+                        const payload = {
+                            ProjectID: project.ID,
+                            StudentID: student.id,
+                            Date: newEntry.value.date,
+                            Minutes: parseFloat(newEntry.value.hours) * 60
+                        }
+
+                        const response = await fetch(apiUrl + 'Timesheet', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        })
+
+                        if (!response.ok) throw new Error('Fehler beim Speichern')
+
+                        alert('Zeiterfassung erfolgreich hinzugefügt')
+                        showPopup.value = false
+                        await fetchData() // neu laden
+                    } catch (err) {
+                        alert('Fehler: ' + err.message)
+                    }
+                }
+
+                onMounted(fetchData)
+
+                return {
+                    timesheetView,
+                    isLoading,
+                    error,
+                    formatDate,
+                    formatHours,
+                    showPopup,
+                    newEntry,
+                    students,
+                    projects,
+                    saveTimesheet
+                }
             }
+        }).mount('#app')
+    </script>
 
-            const payload = {
-              ProjectID: project.ID,
-              StudentID: student.id,
-              Date: newEntry.value.date,
-              Minutes: parseFloat(newEntry.value.hours) * 60
-            }
-
-            const response = await fetch(apiUrl + 'Timesheet', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            })
-
-            if (!response.ok) throw new Error('Fehler beim Speichern')
-
-            alert('Zeiterfassung erfolgreich hinzugefügt')
-            showPopup.value = false
-            await fetchData() // neu laden
-          } catch (err) {
-            alert('Fehler: ' + err.message)
-          }
-        }
-
-        onMounted(fetchData)
-
-        return {
-          timesheetView,
-          isLoading,
-          error,
-          formatDate,
-          formatHours,
-          showPopup,
-          newEntry,
-          students,
-          projects,
-          saveTimesheet
-        }
-      }
-    }).mount('#app')
-  </script>
+    <script type="module">
+        import { initNavigation } from './js/navigation.js';
+        import { createApp, ref, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+        // Navigation initialisieren
+        document.addEventListener('DOMContentLoaded', initNavigation);
+    </script>
 
 </head>
 
 <body>
-  <nav class="side-bar">
-    <section class="side-bar-title">
-      <h1>Projektzeit</h1>
-    </section>
-    <ul class="side-bar-list">
-      <li class="side-bar-list-item"><a href="#" class="active">Dashboard</a></li>
-      <li class="side-bar-list-item"><a href="#">Zeiterfassung</a></li>
-      <li class="side-bar-list-item"><a href="#">Bewilligung</a></li>
-      <li class="side-bar-list-item"><a href="#">Projekte</a></li>
-      <li class="side-bar-list-item"><a href="#">Zuweisungen</a></li>
-    </ul>
-  </nav>
+    <nav class="side-bar">
+        <section class="side-bar-title">
+            <h1>Projektzeit</h1>
+        </section>
+        <ul class="side-bar-list">
+            <li class="side-bar-list-item"><a href="#dashboard" class="active">Dashboard</a></li>
+            <li class="side-bar-list-item"><a href="#time-recording">Zeiterfassung</a></li>
+            <li class="side-bar-list-item"><a href="#approval">Bewilligung</a></li>
+            <li class="side-bar-list-item"><a href="#projects">Projekte</a></li>
+            <li class="side-bar-list-item"><a href="#allocation">Zuweisungen</a></li>
+        </ul>
+    </nav>
 
-  <main id="app">
-    <h2>Dashboard</h2>
-    <p class="subtitle">Übersicht Ihrer Zeiterfassung und Projekte</p>
+    <main id="app">
+        <section class="dashboard" id="dashboard">
+            <h2>Dashboard</h2>
+            <p class="subtitle">Übersicht Ihrer Zeiterfassung und Projekte</p>
 
-    <section class="dashboard-overview">
-      <div class="dashboard-overview-card">
-        <h3>Zu bewilligen</h3>
-        <div class="dashboard-overview-value waiting">0</div>
-        <p>Wartende Einträge</p>
-      </div>
-      <div class="dashboard-overview-card ">
-        <h3>Bewilligt</h3>
-        <div class="dashboard-overview-value confirmed">0</div>
-        <p>Genehmigte Stunden</p>
-      </div>
-      <div class="dashboard-overview-card ">
-        <h3>Abgelehnt</h3>
-        <div class="dashboard-overview-value rejected">0</div>
-        <p>Zurückgewiesene Einträge</p>
-      </div>
-      <div class="dashboard-overview-card ">
-        <h3>Gesamtstunden</h3>
-        <div class="dashboard-overview-value total">0.0</div>
-        <p>Erfasste Stunden</p>
-      </div>
-    </section>
+            <section class="dashboard-overview">
+                <div class="dashboard-overview-card">
+                    <h3>Zu bewilligen</h3>
+                    <div class="dashboard-overview-value waiting">0</div>
+                    <p>Wartende Einträge</p>
+                </div>
+                <div class="dashboard-overview-card ">
+                    <h3>Bewilligt</h3>
+                    <div class="dashboard-overview-value confirmed">0</div>
+                    <p>Genehmigte Stunden</p>
+                </div>
+                <div class="dashboard-overview-card ">
+                    <h3>Abgelehnt</h3>
+                    <div class="dashboard-overview-value rejected">0</div>
+                    <p>Zurückgewiesene Einträge</p>
+                </div>
+                <div class="dashboard-overview-card ">
+                    <h3>Gesamtstunden</h3>
+                    <div class="dashboard-overview-value total">0.0</div>
+                    <p>Erfasste Stunden</p>
+                </div>
+            </section>
+        </section>
 
-    <section class="section">
-      <h3>Zeiterfassung</h3>
-      <button class="recording-button" @click="showPopup = true">+ Neue Zeiterfassung</button>
+        <section class="time-recording" id="time-recording">
+            <section class="section">
+                <h3>Zeiterfassung</h3>
+                <button class="recording-button" @click="showPopup = true">+ Neue Zeiterfassung</button>
+                <p v-if="error" style="color:red">{{ error }}</p>
+                <table v-if="timesheetView.length > 0">
+                    <thead>
+                        <tr>
+                            <th>Projekt</th>
+                            <th>Datum</th>
+                            <th>Stunden</th>
+                            <th>Student</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="item in timesheetView" :key="item.ID">
+                            <td>{{ item.ProjectName }}</td>
+                            <td>{{ formatDate(item.Date) }}</td>
+                            <td>{{ formatHours(item.Minutes) }}</td>
+                            <td>{{ item.Fullname }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+            <!-- Popup -->
+            <div v-if="showPopup" class="popup-overlay">
+                <div class="popup">
+                    <h3>Neue Zeiterfassung</h3>
+                    <label>Projekt</label>
+                    <select v-model="newEntry.projectName">
+                        <option disabled value="">Projekt auswählen</option>
+                        <option v-for="p in projects" :key="p.ID">{{ p.Name }}</option>
+                    </select>
+                    <label>Student</label>
+                    <select v-model="newEntry.studentName">
+                        <option disabled value="">Student auswählen</option>
+                        <option v-for="s in students" :key="s.id">{{ s.fullname }}</option>
+                    </select>
+                    <label>Datum</label>
+                    <input type="date" v-model="newEntry.date">
+                    <label>Stunden</label>
+                    <input type="number" min="0" step="0.25" v-model="newEntry.hours">
+                    <div class="popup-actions">
+                        <button @click="showPopup = false" style="background:#64748b">Abbrechen</button>
+                        <button @click="saveTimesheet">Speichern</button>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-      <p v-if="error" style="color:red">{{ error }}</p>
+        <section class="approval" id="approval">
+        </section>
 
-      <table v-if="timesheetView.length > 0">
-        <thead>
-          <tr>
-            <th>Projekt</th>
-            <th>Datum</th>
-            <th>Stunden</th>
-            <th>Student</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in timesheetView" :key="item.ID">
-            <td>{{ item.ProjectName }}</td>
-            <td>{{ formatDate(item.Date) }}</td>
-            <td>{{ formatHours(item.Minutes) }}</td>
-            <td>{{ item.Fullname }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+        <section class="projects" id="projects">
+        </section>
 
-    <!-- Popup -->
-    <div v-if="showPopup" class="popup-overlay">
-      <div class="popup">
-        <h3>Neue Zeiterfassung</h3>
-
-        <label>Projekt</label>
-        <select v-model="newEntry.projectName">
-          <option disabled value="">Projekt auswählen</option>
-          <option v-for="p in projects" :key="p.ID">{{ p.Name }}</option>
-        </select>
-
-        <label>Student</label>
-        <select v-model="newEntry.studentName">
-          <option disabled value="">Student auswählen</option>
-          <option v-for="s in students" :key="s.id">{{ s.fullname }}</option>
-        </select>
-
-        <label>Datum</label>
-        <input type="date" v-model="newEntry.date">
-
-        <label>Stunden</label>
-        <input type="number" min="0" step="0.25" v-model="newEntry.hours">
-
-        <div class="popup-actions">
-          <button @click="showPopup = false" style="background:#64748b">Abbrechen</button>
-          <button @click="saveTimesheet">Speichern</button>
-        </div>
-      </div>
-    </div>
-  </main>
+        <section class="allocation" id="allocation">
+        </section>
+    </main>
 </body>
+
 </html>
