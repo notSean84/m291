@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="css/styles.css">
     <title>Dashboard - Projektorganisation</title>
 
+    <script src="js/script.js"></script>
+
     <script type="module">
         import { createApp, ref, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
 
@@ -19,7 +21,7 @@
                 const projects = ref([])
                 const isLoading = ref(false)
                 const error = ref(null)
-                const showPopup = ref(false)
+                const showPopupRecord = ref(false)
 
                 const newEntry = ref({
                     projectName: '',
@@ -86,7 +88,7 @@
                         if (!response.ok) throw new Error('Fehler beim Speichern')
 
                         alert('Zeiterfassung erfolgreich hinzugefügt')
-                        showPopup.value = false
+                        showPopupRecord.value = false
                         await fetchData() // neu laden
                     } catch (err) {
                         alert('Fehler: ' + err.message)
@@ -101,7 +103,7 @@
                     error,
                     formatDate,
                     formatHours,
-                    showPopup,
+                    showPopupRecord,
                     newEntry,
                     students,
                     projects,
@@ -118,26 +120,45 @@
         document.addEventListener('DOMContentLoaded', initNavigation);
     </script>
 
+
 </head>
 
 <body>
     <nav class="side-bar">
-        <section class="side-bar-title">
-            <h1>Projektzeit</h1>
+
+        <section class="navigation">
+            <section class="side-bar-title">
+                <h1>Projektzeit</h1>
+            </section>
+            <ul class="side-bar-list">
+                <li class="side-bar-list-item"><a href="#dashboard" class="active">Dashboard</a></li>
+                <li class="side-bar-list-item"><a href="#recording">Zeiterfassung</a></li>
+                <li class="side-bar-list-item"><a href="#approval">Bewilligung</a></li>
+                <li class="side-bar-list-item"><a href="#projects">Projekte</a></li>
+                <li class="side-bar-list-item"><a href="#allocation">Zuweisungen</a></li>
+            </ul>
         </section>
-        <ul class="side-bar-list">
-            <li class="side-bar-list-item"><a href="#dashboard" class="active">Dashboard</a></li>
-            <li class="side-bar-list-item"><a href="#recording">Zeiterfassung</a></li>
-            <li class="side-bar-list-item"><a href="#approval">Bewilligung</a></li>
-            <li class="side-bar-list-item"><a href="#projects">Projekte</a></li>
-            <li class="side-bar-list-item"><a href="#allocation">Zuweisungen</a></li>
-        </ul>
+
+        <section class="user-login">
+            <select class="year-select" id="year">
+                <option disabled selected hidden>Lehrgang</option>
+            </select>
+            <select class="name-select" id="name">
+                <option disabled selected hidden>Name</option>
+            </select>
+            <button class="user-login-button" id="user-login-button">LogIn</button>
+        </section>
+
+
+
     </nav>
 
     <main id="app">
         <section class="dashboard" id="dashboard">
-            <h2>Dashboard</h2>
-            <p class="subtitle">Übersicht Ihrer Zeiterfassung und Projekte</p>
+            <section class="site-header">
+                <h2>Dashboard</h2>
+                <p class="subtitle">Übersicht Ihrer Zeiterfassung und Projekte</p>
+            </section>
 
             <section class="dashboard-overview">
                 <div class="dashboard-overview-card">
@@ -164,9 +185,9 @@
         </section>
 
         <section class="recording" id="recording">
-            <section class="recording-header">
+            <section class="site-header">
                 <h2>Zeiterfassung</h2>
-                <button class="recording-button" @click="showPopup = true">+ Neue Zeiterfassung</button>
+                <button class="site-header-button" @click="showPopupRecord = true">+ Neue Zeiterfassung</button>
             </section>
             <section class="section">
                 <p v-if="error" style="color:red">{{ error }}</p>
@@ -181,7 +202,7 @@
                     </thead>
                     <tbody>
                         <tr v-for="item in timesheetView" :key="item.ID">
-                            <td>{{ item.ProjectName }}</td>
+                            <td>{{ item.projectname }}</td>
                             <td>{{ formatDate(item.Date) }}</td>
                             <td>{{ formatHours(item.Minutes) }}</td>
                             <td>{{ item.Fullname }}</td>
@@ -190,7 +211,7 @@
                 </table>
             </section>
             <!-- Popup -->
-            <div v-if="showPopup" class="popup-overlay">
+            <div v-if="showPopupRecord" class="popup-overlay">
                 <div class="popup">
                     <h3>Neue Zeiterfassung</h3>
                     <label>Projekt</label>
@@ -208,7 +229,7 @@
                     <label>Stunden</label>
                     <input type="number" min="0" step="0.25" v-model="newEntry.hours">
                     <div class="popup-actions">
-                        <button @click="showPopup = false" style="background:#64748b">Abbrechen</button>
+                        <button @click="showPopupRecord = false" style="background:#64748b">Abbrechen</button>
                         <button @click="saveTimesheet">Speichern</button>
                     </div>
                 </div>
@@ -216,12 +237,70 @@
         </section>
 
         <section class="approval" id="approval">
+            <section class="site-header">
+                <h2>Bewilligung</h2>
+                <p class="subtitle">Übersicht von Anträge die zu Bewilligen sind</p>
+            </section>
         </section>
 
         <section class="projects" id="projects">
+            <section class="site-header">
+                <h2>Projekte</h2>
+                <button class="site-header-button" @click="showPopupRecord = true">+ Neues Projekt</button>
+            </section>
+            <section class="section">
+                <p v-if="error" style="color:red">{{ error }}</p>
+                <table v-if="timesheetView.length > 0">
+                    <thead>
+                        <tr>
+                            <th>Projekt</th>
+                            <th>Mitarbeiter</th>
+                            <th>Start</th>
+                            <th>Student</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="item in timesheetView" :key="item.ID">
+                            <td>{{ item.ProjectName }}</td>
+                            <td>{{ formatDate(item.Date) }}</td>
+                            <td>{{ formatHours(item.Minutes) }}</td>
+                            <td>{{ item.Fullname }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+            <!-- Popup -->
+            <div v-if="showPopupRecord" class="popup-overlay">
+                <div class="popup">
+                    <h3>Neue Zeiterfassung</h3>
+                    <label>Projekt</label>
+                    <select v-model="newEntry.projectName">
+                        <option disabled value="">Projekt auswählen</option>
+                        <option v-for="p in projects" :key="p.ID">{{ p.Name }}</option>
+                    </select>
+                    <label>Student</label>
+                    <select v-model="newEntry.studentName">
+                        <option disabled value="">Student auswählen</option>
+                        <option v-for="s in students" :key="s.id">{{ s.fullname }}</option>
+                    </select>
+                    <label>Datum</label>
+                    <input type="date" v-model="newEntry.date">
+                    <label>Stunden</label>
+                    <input type="number" min="0" step="0.25" v-model="newEntry.hours">
+                    <div class="popup-actions">
+                        <button @click="showPopupRecord = false" style="background:#64748b">Abbrechen</button>
+                        <button @click="saveTimesheet">Speichern</button>
+                    </div>
+                </div>
+            </div>
+
         </section>
 
         <section class="allocation" id="allocation">
+            <section class="site-header">
+                <h2>Zuweisungen</h2>
+                <button class="site-header-button" @click="showPopupRecord = true">+ Neue Zuweisungen</button>
+            </section>
         </section>
     </main>
 </body>

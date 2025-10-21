@@ -37,12 +37,14 @@ main>section.active {
 
 /* Sidebar */
 .side-bar {
-  width: 240px;
+  width: 15vw;
+  min-width: 250px;
   background: var(--sidebar-bg);
   padding: var(--spacing);
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
 }
 
 .side-bar-title {
@@ -83,7 +85,63 @@ main>section.active {
     color: black;
 }
 
-/* Dashboard main */
+
+/* User Login */
+/* User Login Section */
+.user-login {
+  background: var(--card-bg);
+  padding: 1rem;
+  border-radius: var(--border-radius);
+  box-shadow: 0px 0px 20px 2px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Dropdowns */
+.year-select,
+.name-select {
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--border-radius);
+  border: 1px solid #d1d5db;
+  background-color: #f9fafb;
+  color: var(--text-dark);
+  font-size: 0.95rem;
+  transition: border 0.3s, box-shadow 0.3s;
+}
+
+.year-select:focus,
+.name-select:focus {
+  outline: none;
+  border-color: var(--sidebar-active);
+  box-shadow: 0 0 0 3px rgba(var(--sidebar-active-rgb), 0.2);
+}
+
+/* Login Button */
+.user-login-button {
+  background: var(--sidebar-active);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  padding: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+}
+
+.user-login-button:hover {
+  background: rgba(var(--sidebar-active-rgb), 0.9);
+  transform: translateY(-1px);
+}
+
+.user-login-button:active {
+  transform: translateY(0);
+}
+
+
+
+
+/* jDashboard main */
 main {
   flex: 1;
   padding: 2rem 3rem;
@@ -141,13 +199,14 @@ h2 {
   margin-bottom: var(--spacing);
 }
 
-.recording-header {
+.site-header {
   display: flex;
   justify-content: space-between;
   margin-bottom: 1rem;
+  align-items: center;
 }
 
-.recording-button {
+.site-header-button {
   margin-bottom: 1rem;
   font-weight: bold;
   background: #16a34a;
