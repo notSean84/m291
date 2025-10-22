@@ -19,3 +19,5 @@ Fliesstext: 16px
 Kleine Texte: 14px
 Überschrift (H2): 28px
 Unterüberschrift (H3): 18px
+
+<img width="1455" height="522" alt="image" src="https://github.com/user-attachments/assets/771ab886-bc84-4566-9c0f-ae8a40e57f55" />
