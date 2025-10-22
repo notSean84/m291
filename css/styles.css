@@ -272,13 +272,50 @@ button {
   cursor: pointer;
 }
 
-.edit-btn {
-  background: #3b82f6;
-  margin: 5px;
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
 }
 
+.actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.2s ease;
+}
+
+.actions button:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
+
+.actions button {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+
+/* Blau: Bearbeiten */
+.edit-btn {
+  background-color: #3b82f6;
+}
+
+.edit-btn svg {
+  stroke: white;
+}
+
+/* Rot: Löschen */
 .delete-btn {
-  background: #f75555;
+  background-color: #f75555;
+}
+
+.delete-btn svg {
+  stroke: white;
 }
 
 /* allgemeiner Badge */

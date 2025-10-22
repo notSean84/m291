@@ -4,10 +4,14 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <link rel="stylesheet" href="css/styles.css" />
+    
     <link rel="icon" href="assets/img/favicon.svg" type="image/x-icon" />
+
     <script src="js/script.js"></script>
     <script type="module" src="js/vue.js"></script>
+
     <title>Dashboard - Projektorganisation</title>
 </head>
 
@@ -164,17 +168,20 @@
                                     {{ approvedText(item.Approved) }}
                                 </span>
                             </td>
-
-
-
                             <td class="actions">
-                                <button class="edit-btn" @click="editEntry(item)">✍️</button>
-                                <button class="delete-btn" @click="deleteEntry(item.ID)">❌</button>
+                                <button class="edit-btn" @click="editEntry(item)">
+                                    <img src="assets/img/edit.svg">
+                                </button>
+
+                                <button class="delete-btn" @click="deleteEntry(item.ID)">
+                                    <img src="assets/img/delete.svg">
+                                </button>
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </section>
+
 
             <!-- Popup: Timesheet -->
             <div v-if="showPopupRecord" class="popup-overlay">
@@ -230,9 +237,15 @@
                             <td>{{ typeName(p.TypeID) }}</td>
                             <td>{{ customerName(p.CustomerID) }}</td>
                             <td class="actions">
-                                <button class="edit-btn" @click="editProject(p)">✍️</button>
-                                <button class="delete-btn" @click="deleteProject(p.ID)">❌</button>
+                                <button class="edit-btn" @click="editProject(item)">
+                                    <img src="assets/img/edit.svg">
+                                </button>
+
+                                <button class="delete-btn" @click="deleteProject(item.ID)">
+                                    <img src="assets/img/delete.svg">
+                                </button>
                             </td>
+                        </tr>
                         </tr>
                     </tbody>
                 </table>
@@ -279,7 +292,8 @@
             <section class="allocation" id="allocation">
                 <section class="site-header">
                     <h2>Zuweisungen</h2>
-                    <p class="subtitle">Übersicht: In welche Projekte eine Person (Schüler oder Coach) involviert ist
+                    <p class="subtitle">Übersicht: In welche Projekte eine Person (Schüler oder Coach) involviert
+                        ist
                     </p>
                 </section>
 
