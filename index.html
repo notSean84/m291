@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="css/styles.css" />
-    <link rel="icon" href="assets/img/favicon.svg" type="image/x-icon"/>
+    <link rel="icon" href="assets/img/favicon.svg" type="image/x-icon" />
     <script src="js/script.js"></script>
     <script type="module" src="js/vue.js"></script>
     <title>Dashboard - Projektorganisation</title>
@@ -154,14 +154,15 @@
                             <td>{{ formatDate(item.Date) }}</td>
                             <td>{{ formatHours(item.Minutes) }}</td>
                             <td>{{ item.Fullname }}</td>
-                            <!--                            <td>{{ approvedText(item.Approved) }}</td>-->
-                            <td :class="{
-                                'status-red': item.Approved == 0,
-                                'status-green': item.Approved == 1,
-                                'status-yellow': item.Approved == 2,
-                                'status-blue': item.Approved == 3
-                                }">
-                                {{ approvedText(item.Approved) }}
+                            <td>
+                                <span :class="[
+                                    'badge',
+                                    item.Approved === 1 ? 'badge--green' :
+                                    item.Approved === 0 ? 'badge--red'   :
+                                    item.Approved === 2 ? 'badge--yellow': 'badge--blue'
+                                     ]">
+                                    {{ approvedText(item.Approved) }}
+                                </span>
                             </td>
 
 
@@ -401,7 +402,7 @@
 
         </section>
     </main>
-  
+
 </body>
 
 </html>
