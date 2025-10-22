@@ -148,8 +148,7 @@
             </div>
         </section>
 
-        <!-- Projekte -->
-        <section class="recording" id="projects">
+        <section class="projects" id="projects">
             <section class="site-header">
                 <h2>Projekte</h2>
                 <button class="site-header-button" @click="openProjectCreate">+ Neues Projekt</button>
@@ -226,10 +225,71 @@
         </section>
 
         <section class="allocation" id="allocation">
-            <section class="site-header">
-                <h2>Zuweisungen</h2>
-                <button class="site-header-button" @click="showPopupRecord = true">+ Neue Zuweisungen</button>
+            <section class="allocation" id="allocation">
+                <section class="site-header">
+                    <h2>Zuweisungen</h2>
+                    <p class="subtitle">Übersicht: In welche Projekte eine Person (Schüler oder Coach) involviert ist
+                    </p>
+                </section>
+
+                <section class="section">
+                    <!-- Filterleiste -->
+                    <div class="filter-bar"
+                        style="display:flex; flex-wrap:wrap; gap:1rem; align-items:center; margin-bottom:1rem;">
+                        <div style="display:flex; gap:.5rem; align-items:center;">
+                            <label style="font-weight:600;">Rolle:</label>
+                            <select v-model="roleFilter" class="name-select">
+                                <option value="student">Schüler</option>
+                                <option value="coach">Coach</option>
+                            </select>
+                        </div>
+
+                        <div style="display:flex; gap:.5rem; align-items:center;">
+                            <label style="font-weight:600;">Person:</label>
+                            <select v-model="selectedPerson" class="name-select">
+                                <option disabled value="">Bitte wählen</option>
+                                <option v-for="n in personOptions" :key="n" :value="n">{{ n }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Tabelle -->
+                    <table v-if="selectedPerson && involvementRows.length">
+                        <thead>
+                            <tr>
+                                <th>Nr.</th>
+                                <th>Projekt</th>
+                                <th>Coach</th>
+                                <th>Typ</th>
+                                <th>Kunde</th>
+                                <th>Stunden</th>
+                                <th>Einträge</th>
+                                <th>Letzte Aktivität</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in involvementRows" :key="row.ProjectName">
+                                <td>{{ row.Number }}</td>
+                                <td>{{ row.ProjectName }}</td>
+                                <td>{{ row.Coach }}</td>
+                                <td>{{ row.TypeName }}</td>
+                                <td>{{ row.CustomerName }}</td>
+                                <td>{{ formatHours(row.Minutes) }}</td>
+                                <td>{{ row.Entries }}</td>
+                                <td>{{ row.LastDate ? row.LastDate.toLocaleDateString('de-CH') : '—' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p v-else-if="selectedPerson && !involvementRows.length" style="color:var(--text-muted)">
+                        Keine Projekte gefunden.
+                    </p>
+                    <p v-else style="color:var(--text-muted)">
+                        Bitte Rolle und Person auswählen.
+                    </p>
+                </section>
             </section>
+
         </section>
 
         <section class="approval" id="approval">
@@ -277,7 +337,8 @@
                                     {{ approvedText(item.Approved) }}
                                 </td>
                                 <td class="actions" style="display:flex; gap:.5rem;">
-                                    <button class="site-header-button" @click="setApproval(item, 1)">✅ Annehmen</button>
+                                    <button class="site-header-button" @click="setApproval(item, 1)">✅
+                                        Annehmen</button>
                                     <button class="delete-btn" @click="setApproval(item, 0)">🚫 Ablehnen</button>
                                 </td>
                             </tr>
@@ -386,6 +447,140 @@
                         alert('Fehler: ' + err.message)
                     }
                 }
+
+
+                /* ---------- Allocation / Beteiligungen ---------- */
+                const roleFilter = ref('student') // 'student' | 'coach'
+                const selectedPerson = ref('')    // Voller Name des Schülers ODER Coach-Name (wie im Projekt gespeichert)
+
+                // Optionen für die Personenauswahl
+                const studentOptions = computed(() =>
+                    (students.value || [])
+                        .map(s => s.Fullname)
+                        .filter(Boolean)
+                        .sort((a, b) => a.localeCompare(b, 'de'))
+                )
+
+                // Coach-Namen aus Projekten ableiten (freie Texteingabe im Feld Coach)
+                const coachOptions = computed(() => {
+                    const set = new Set()
+                    for (const p of (projects.value || [])) {
+                        const n = (p.Coach || '').trim()
+                        if (n) set.add(n)
+                    }
+                    return Array.from(set).sort((a, b) => a.localeCompare(b, 'de'))
+                })
+
+                // Personenliste je nach Rolle
+                const personOptions = computed(() =>
+                    roleFilter.value === 'student' ? studentOptions.value : coachOptions.value
+                )
+
+                // schnelle Lookups
+                const projectTypeById = computed(() => {
+                    const m = new Map()
+                    for (const t of (projectTypes.value || [])) m.set(Number(t.ID), t)
+                    return m
+                })
+                const customerById = computed(() => {
+                    const m = new Map()
+                    for (const c of (customers.value || [])) m.set(Number(c.ID), c)
+                    return m
+                })
+                const projectByName = computed(() => {
+                    const m = new Map()
+                    for (const p of (projects.value || [])) m.set(p.Name, p)
+                    return m
+                })
+
+                // Aggregation: Einträge nach ProjectName gruppieren
+                function aggregateTimesheets(list) {
+                    const map = new Map()
+                    for (const ts of list) {
+                        const key = ts.ProjectName
+                        if (!map.has(key)) {
+                            map.set(key, {
+                                ProjectName: key,
+                                Minutes: 0,
+                                Entries: 0,
+                                LastDate: null
+                            })
+                        }
+                        const row = map.get(key)
+                        row.Minutes += Number(ts.Minutes) || 0
+                        row.Entries += 1
+                        const d = new Date(ts.Date)
+                        if (!isNaN(d)) {
+                            if (!row.LastDate || d > row.LastDate) row.LastDate = d
+                        }
+                    }
+                    return Array.from(map.values())
+                }
+
+                // Hauptdaten für die Tabelle
+                const involvementRows = computed(() => {
+                    const person = (selectedPerson.value || '').trim()
+                    if (!person) return []
+
+                    // Rollen-Logik
+                    if (roleFilter.value === 'student') {
+                        // Alle Timesheets dieses Schülers
+                        const mine = (timesheetView.value || []).filter(x => (x.Fullname || '').trim() === person)
+                        const grouped = aggregateTimesheets(mine)
+
+                        // mit Projektdetails anreichern
+                        return grouped.map(g => {
+                            const p = projectByName.value.get(g.ProjectName)
+                            const type = p ? projectTypeById.value.get(Number(p.TypeID)) : null
+                            const cust = p ? customerById.value.get(Number(p.CustomerID)) : null
+                            return {
+                                Number: p?.Number || '—',
+                                ProjectName: g.ProjectName,
+                                Coach: p?.Coach || '—',
+                                TypeName: type?.Name || '—',
+                                CustomerName: cust?.Name || '—',
+                                Minutes: g.Minutes,
+                                Entries: g.Entries,
+                                LastDate: g.LastDate
+                            }
+                        }).sort((a, b) => (b.LastDate?.getTime() || 0) - (a.LastDate?.getTime() || 0))
+                    }
+
+                    // role = 'coach' → alle Projekte dieses Coach + zugehörige Stunden aus Timesheets
+                    const myProjects = (projects.value || []).filter(p => (p.Coach || '').trim() === person)
+                    const byProjectName = new Map()
+
+                    // Timesheets zu diesen Projekten aufsummieren
+                    for (const p of myProjects) byProjectName.set(p.Name, { Minutes: 0, Entries: 0, LastDate: null })
+                    for (const ts of (timesheetView.value || [])) {
+                        if (byProjectName.has(ts.ProjectName)) {
+                            const cell = byProjectName.get(ts.ProjectName)
+                            cell.Minutes += Number(ts.Minutes) || 0
+                            cell.Entries += 1
+                            const d = new Date(ts.Date)
+                            if (!isNaN(d)) {
+                                if (!cell.LastDate || d > cell.LastDate) cell.LastDate = d
+                            }
+                        }
+                    }
+
+                    return myProjects.map(p => {
+                        const acc = byProjectName.get(p.Name) || { Minutes: 0, Entries: 0, LastDate: null }
+                        const type = projectTypeById.value.get(Number(p.TypeID))
+                        const cust = customerById.value.get(Number(p.CustomerID))
+                        return {
+                            Number: p.Number || '—',
+                            ProjectName: p.Name,
+                            Coach: p.Coach || '—',
+                            TypeName: type?.Name || '—',
+                            CustomerName: cust?.Name || '—',
+                            Minutes: acc.Minutes,
+                            Entries: acc.Entries,
+                            LastDate: acc.LastDate
+                        }
+                    }).sort((a, b) => (b.LastDate?.getTime() || 0) - (a.LastDate?.getTime() || 0))
+                })
+
 
 
                 /* ---------- Gemeinsames Laden ---------- */
@@ -683,7 +878,14 @@
                     /* Approval */
                     approvalFilter,
                     approvalsFiltered,
-                    setApproval
+                    setApproval,
+
+                    /* Allocation */
+                    roleFilter,
+                    selectedPerson,
+                    personOptions,
+                    involvementRows
+
                 }
             }
         }).mount('#app')
