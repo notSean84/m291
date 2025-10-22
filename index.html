@@ -49,7 +49,8 @@
                     Eingeloggt als <strong>{{ loggedInStudent.Fullname }}</strong><br>
                     Lehrgang: {{ loggedInStudent.Year }}
                 </p>
-                <button class="user-login-button logout-btn" @click="logout" style="margin-top:0.5rem; background:#ef4444;">
+                <button class="user-login-button logout-btn" @click="logout"
+                    style="margin-top:0.5rem; background:#ef4444;">
                     Logout
                 </button>
             </div>
@@ -63,30 +64,69 @@
             <section class="site-header">
                 <h2>Dashboard</h2>
                 <p class="subtitle">Übersicht Ihrer Zeiterfassung und Projekte</p>
+                <p v-if="isLoggedIn" style="margin-top:.5rem; color:var(--text-muted)">
+                    Eingeloggt als <strong>{{ loggedInStudent.Fullname }}</strong> (Lehrgang {{ loggedInStudent.Year }})
+                </p>
             </section>
+
 
             <section class="dashboard-overview">
                 <div class="dashboard-overview-card">
                     <h3>Zu bewilligen</h3>
-                    <div class="dashboard-overview-value waiting">0</div>
+                    <div class="dashboard-overview-value waiting">{{ dashboardStats.pendingCount }}</div>
                     <p>Wartende Einträge</p>
                 </div>
-                <div class="dashboard-overview-card ">
+
+                <div class="dashboard-overview-card">
                     <h3>Bewilligt</h3>
-                    <div class="dashboard-overview-value confirmed">0</div>
+                    <div class="dashboard-overview-value confirmed">{{ dashboardStats.approvedHrs }}</div>
                     <p>Genehmigte Stunden</p>
                 </div>
-                <div class="dashboard-overview-card ">
+
+                <div class="dashboard-overview-card">
                     <h3>Abgelehnt</h3>
-                    <div class="dashboard-overview-value rejected">0</div>
+                    <div class="dashboard-overview-value rejected">{{ dashboardStats.rejectedCount }}</div>
                     <p>Zurückgewiesene Einträge</p>
                 </div>
-                <div class="dashboard-overview-card ">
+
+                <div class="dashboard-overview-card">
                     <h3>Gesamtstunden</h3>
-                    <div class="dashboard-overview-value total">0.0</div>
+                    <div class="dashboard-overview-value total">{{ dashboardStats.totalHrs }}</div>
                     <p>Erfasste Stunden</p>
                 </div>
             </section>
+
+            <section class="dashboard-extras section" style="margin-top:1rem;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+                    <div class="card" style="padding:1rem; border:1px solid var(--border,#e5e7eb); border-radius:12px;">
+                        <h3 style="margin:0 0 .5rem 0;">Dieser Monat</h3>
+                        <p style="font-size:2rem; margin:0; font-weight:700;">{{ monthHours }} h</p>
+                        <p class="subtitle" style="margin:.25rem 0 0 0; color:var(--text-muted);">Summe aller erfassten
+                            Stunden</p>
+                    </div>
+
+                    <div class="card" style="padding:1rem; border:1px solid var(--border,#e5e7eb); border-radius:12px;">
+                        <h3 style="margin:0 0 .5rem 0;">Top-Projekte</h3>
+                        <table v-if="topProjects.length">
+                            <thead>
+                                <tr>
+                                    <th style="text-align:left;">Projekt</th>
+                                    <th style="text-align:right;">Stunden</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="p in topProjects" :key="p.name">
+                                    <td>{{ p.name }}</td>
+                                    <td style="text-align:right;">{{ p.hours }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p v-else style="color:var(--text-muted)">Keine Daten</p>
+                    </div>
+                </div>
+            </section>
+
+
         </section>
 
         <section class="recording" id="recording">
@@ -527,6 +567,61 @@
                     }
                     return Array.from(map.values())
                 }
+
+                /* ---------- Dashboard KPIs ---------- */
+                const sourceTimesheets = computed(() => {
+                    // nutzt login-gefilterte Liste, falls vorhanden – sonst alle
+                    return (typeof baseTimesheets !== 'undefined' && baseTimesheets.value)
+                        ? baseTimesheets.value
+                        : (timesheetView.value || [])
+                })
+
+                function sumMinutes(list) {
+                    return list.reduce((acc, x) => acc + (Number(x.Minutes) || 0), 0)
+                }
+
+                const dashboardStats = computed(() => {
+                    const list = sourceTimesheets.value
+
+                    const pendingCount = list.filter(x => Number(x.Approved) === 2).length
+                    const rejectedCount = list.filter(x => Number(x.Approved) === 0).length
+                    const approvedHrs = (sumMinutes(list.filter(x => Number(x.Approved) === 1)) / 60).toFixed(1)
+                    const totalHrs = (sumMinutes(list) / 60).toFixed(1)
+
+                    return {
+                        pendingCount,
+                        rejectedCount,
+                        approvedHrs,
+                        totalHrs
+                    }
+                })
+
+                /* ---------- (Optional) Extras ---------- */
+                // A) Top 3 Projekte nach Stunden (aus allen Einträgen der Quelle)
+                const topProjects = computed(() => {
+                    const map = new Map()
+                    for (const t of sourceTimesheets.value) {
+                        const key = t.ProjectName || '—'
+                        map.set(key, (map.get(key) || 0) + (Number(t.Minutes) || 0))
+                    }
+                    return Array.from(map.entries())
+                        .map(([name, minutes]) => ({ name, hours: +(minutes / 60).toFixed(1) }))
+                        .sort((a, b) => b.hours - a.hours)
+                        .slice(0, 3)
+                })
+
+                // B) Stunden in diesem Monat
+                const monthHours = computed(() => {
+                    const now = new Date()
+                    const start = new Date(now.getFullYear(), now.getMonth(), 1)
+                    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+                    const mins = sourceTimesheets.value.reduce((acc, x) => {
+                        const d = new Date(x.Date)
+                        return (d >= start && d < end) ? acc + (Number(x.Minutes) || 0) : acc
+                    }, 0)
+                    return (mins / 60).toFixed(1)
+                })
+
 
                 // Hauptdaten für die Tabelle
                 const involvementRows = computed(() => {
@@ -999,6 +1094,11 @@
                     timesheetViewFiltered,
                     projectsFiltered,
                     baseTimesheets,
+
+                    dashboardStats,
+                    topProjects,
+                    monthHours,
+
 
                 }
             }
