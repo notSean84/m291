@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="SBW Projects Favicon" shape-rendering="geometricPrecision">
+  <!-- Hintergrund -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563EB"></stop>
+      <stop offset="1" stop-color="#1D4ED8"></stop>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#g)"></rect>
+  <!-- dünner Rand für bessere Kanten auf hellem & dunklem Hintergrund -->
+  <rect x="8.5" y="8.5" width="111" height="111" rx="23.5" fill="none" stroke="rgba(0,0,0,.15)"></rect>
+
+  <!-- Haken -->
+  <path d="M38 66 l18 18 34-38" fill="none" stroke="#FFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>

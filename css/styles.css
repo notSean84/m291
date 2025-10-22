@@ -12,6 +12,9 @@
   --spacing: 1rem;
 }
 
+@import url('https://fonts.googleapis.com/css2?family=BBH+Sans+Hegarty&display=swap');
+
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -151,8 +154,9 @@ main {
 }
 
 h2 {
+  font-family: "BBH Sans Hegarty", sans-serif;
+  font-weight: 800;
   font-size: 1.75rem;
-  font-weight: 700;
   margin-bottom: 0.5rem;
 }
 

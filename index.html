@@ -5,6 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="css/styles.css" />
+    <link rel="icon" href="assets/img/favicon.svg" type="image/x-icon"/>
     <script src="js/script.js"></script>
     <script type="module" src="js/vue.js"></script>
     <title>Dashboard - Projektorganisation</title>
@@ -264,9 +265,6 @@
                         <option :value="0" disabled>Kunde auswählen</option>
                         <option v-for="c in customers" :key="c.ID" :value="c.ID">{{ c.Name }}</option>
                     </select>
-
-                    <label>ParentID</label>
-                    <input type="number" v-model.number="projectForm.ParentID" min="0" />
 
                     <div class="popup-actions">
                         <button @click="closeProjectPopup" style="background:#64748b">Abbrechen</button>
