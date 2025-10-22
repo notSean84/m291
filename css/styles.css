@@ -381,6 +381,7 @@ button {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+  padding-top: 25px;
 }
 
 .checkbox-wrapper {
