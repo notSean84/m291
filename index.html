@@ -9,7 +9,7 @@
     <title>Dashboard - Projektorganisation</title>
 </head>
 
-<body>
+<body id="app">
     <nav class="side-bar">
         <section class="navigation">
             <section class="side-bar-title">
@@ -25,27 +25,40 @@
         </section>
 
         <section class="user-login">
-            <select class="year-select" id="year">
-                <option disabled selected hidden>Lehrgang</option>
-            </select>
-            <select class="name-select" id="name">
-                <option disabled selected hidden>Name</option>
+            <select class="year-select" id="year" v-model="selectedYear" @change="selectedName = ''">
+                <option disabled value="">Lehrgang</option>
+                <option v-for="y in yearOptions" :key="y" :value="y">Lehrgang {{ y }}</option>
             </select>
 
+            <select class="name-select" id="name" v-model="selectedName" :disabled="!selectedYear">
+                <option disabled value="">Name</option>
+                <option v-for="s in nameOptions" :key="s.ID" :value="s.Fullname">{{ s.Fullname }}</option>
+            </select>
 
+            <button class="user-login-button" id="user-login-button" @click="handleLogin">LogIn</button>
 
-            <button class="user-login-button" id="user-login-button">LogIn</button>
             <div class="checkbox-wrapper">
                 <p class="admin-toggle-label">Admin</p>
                 <div>
-                    <input class="tgl tgl-ios" id="admin-toggle" type="checkbox" />
+                    <input class="tgl tgl-ios" id="admin-toggle" type="checkbox" v-model="isAdmin" />
                     <label class="tgl-btn" for="admin-toggle" data-tg-off="Student" data-tg-on="Admin"></label>
                 </div>
             </div>
+            <div v-if="isLoggedIn" class="login-info">
+                <p style="margin: 0, 0, 0, .5em; font-size:0.9rem; color:var(--text-muted)">
+                    Eingeloggt als <strong>{{ loggedInStudent.Fullname }}</strong><br>
+                    Lehrgang: {{ loggedInStudent.Year }}
+                </p>
+                <button class="user-login-button logout-btn" @click="logout" style="margin-top:0.5rem; background:#ef4444;">
+                    Logout
+                </button>
+            </div>
         </section>
-    </nav>
 
-    <main id="app">
+
+    </nav>
+    <main>
+
         <section class="dashboard" id="dashboard">
             <section class="site-header">
                 <h2>Dashboard</h2>
@@ -84,7 +97,7 @@
             <section class="section">
                 <p v-if="error" style="color:red">{{ error }}</p>
 
-                <table v-if="timesheetView.length > 0">
+                <table v-if="timesheetViewFiltered.length > 0">
                     <thead>
                         <tr>
                             <th>Projekt</th>
@@ -96,7 +109,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="item in timesheetView" :key="item.ID">
+                        <tr v-for="item in timesheetViewFiltered" :key="item.ID">
                             <td>{{ item.ProjectName }}</td>
                             <td>{{ formatDate(item.Date) }}</td>
                             <td>{{ formatHours(item.Minutes) }}</td>
@@ -157,7 +170,7 @@
             <section class="section">
                 <p v-if="projectError" style="color:red">{{ projectError }}</p>
 
-                <table v-if="projects.length > 0">
+                <table v-if="projectsFiltered.length > 0">
                     <thead>
                         <tr>
                             <th>Nr.</th>
@@ -169,7 +182,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="p in projects" :key="p.ID">
+                        <tr v-for="p in projectsFiltered" :key="p.ID">
                             <td>{{ p.Number || '—' }}</td>
                             <td>{{ p.Name }}</td>
                             <td>{{ p.Coach || '—' }}</td>
@@ -354,7 +367,7 @@
 
     <!-- Vue App (GENAU EINMAL) -->
     <script type="module">
-        import { createApp, ref, computed, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+        import { createApp, ref, computed, onMounted, watch } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
 
         const apiUrl = 'https://projects.sbw.media/'
 
@@ -399,17 +412,15 @@
                 const approvalFilter = ref('all') // 'all' | 'pending' | 'approved' | 'rejected'
 
                 const approvalsFiltered = computed(() => {
+                    const src = baseTimesheets.value // <-- statt: timesheetView.value
                     switch (approvalFilter.value) {
-                        case 'pending':
-                            return timesheetView.value.filter(x => Number(x.Approved) === 2)
-                        case 'approved':
-                            return timesheetView.value.filter(x => Number(x.Approved) === 1)
-                        case 'rejected':
-                            return timesheetView.value.filter(x => Number(x.Approved) === 0)
-                        default:
-                            return timesheetView.value
+                        case 'pending': return src.filter(x => Number(x.Approved) === 2)
+                        case 'approved': return src.filter(x => Number(x.Approved) === 1)
+                        case 'rejected': return src.filter(x => Number(x.Approved) === 0)
+                        default: return src
                     }
                 })
+
 
                 async function setApproval(item, status) {
                     try {
@@ -580,6 +591,91 @@
                         }
                     }).sort((a, b) => (b.LastDate?.getTime() || 0) - (a.LastDate?.getTime() || 0))
                 })
+
+
+
+                /* ---------- Login / Lehrgang → Name ---------- */
+                const selectedYear = ref('')
+                const selectedName = ref('')
+                const isAdmin = ref(false)
+                const isLoggedIn = ref(false)
+                const loggedInStudent = ref(null)
+
+
+                // Hilfsfunktion: "Lehrgang/Jahr" aus Student-Objekt lesen (robust auf verschiedene Feldnamen)
+                function studentYear(s) {
+                    const y = Number(s?.Year)
+                    return Number.isFinite(y) && y > 0 ? y : null
+                }
+
+                // Alle Lehrgänge aus Studenten ableiten
+                const yearOptions = computed(() => {
+                    const set = new Set()
+                    for (const s of (students.value || [])) {
+                        const y = studentYear(s)
+                        if (y !== null) set.add(y)
+                    }
+                    return Array.from(set).sort((a, b) => a - b) // numerisch
+                })
+
+                const nameOptions = computed(() => {
+                    if (selectedYear.value === '') return []
+                    const yr = Number(selectedYear.value)
+                    return (students.value || [])
+                        .filter(s => studentYear(s) === yr)
+                        .sort((a, b) => (a.Fullname || '').localeCompare(b.Fullname || '', 'de'))
+                })
+
+
+                function handleLogin() {
+                    const yr = Number(selectedYear.value)
+                    const nm = String(selectedName.value || '')
+                    const s = (students.value || []).find(x => studentYear(x) === yr && x.Fullname === nm)
+
+                    if (!s) {
+                        alert('Bitte gültigen Lehrgang und Namen wählen.')
+                        return
+                    }
+                    loggedInStudent.value = s
+                    isLoggedIn.value = true
+
+                    // (Optional) Allocation-Default auf eingeloggte Person setzen
+                    if (typeof roleFilter !== 'undefined') roleFilter.value = 'student'
+                    if (typeof selectedPerson !== 'undefined') selectedPerson.value = s.Fullname
+                }
+
+                function logout() {
+                    isLoggedIn.value = false
+                    loggedInStudent.value = null
+                    selectedYear.value = ''
+                    selectedName.value = ''
+                    isAdmin.value = false
+                }
+
+
+                watch(selectedYear, () => { selectedName.value = '' })
+
+
+
+                /* ---------- Gemeinsamer Filter: Basis-Timesheets je nach Login/Admin ---------- */
+                const baseTimesheets = computed(() => {
+                    let list = timesheetView.value || []
+                    if (isLoggedIn.value && !isAdmin.value && loggedInStudent.value) {
+                        const id = Number(loggedInStudent.value.ID)
+                        const name = loggedInStudent.value.Fullname
+                        list = list.filter(x => Number(x.StudentID) === id || x.Fullname === name)
+                    }
+                    return list
+                })
+
+                const timesheetViewFiltered = computed(() => baseTimesheets.value)
+
+                const projectsFiltered = computed(() => {
+                    if (!(isLoggedIn.value && !isAdmin.value && loggedInStudent.value)) return projects.value || []
+                    const involved = new Set((baseTimesheets.value || []).map(x => x.ProjectName))
+                    return (projects.value || []).filter(p => involved.has(p.Name))
+                })
+
 
 
 
@@ -884,7 +980,25 @@
                     roleFilter,
                     selectedPerson,
                     personOptions,
-                    involvementRows
+                    involvementRows,
+
+                    // Login
+                    selectedYear,
+                    selectedName,
+                    isAdmin,
+                    isLoggedIn,
+                    handleLogin,
+                    yearOptions,
+                    nameOptions,
+                    handleLogin,
+                    logout,
+                    isLoggedIn,
+                    loggedInStudent,
+
+                    // Gefilterte Listen
+                    timesheetViewFiltered,
+                    projectsFiltered,
+                    baseTimesheets,
 
                 }
             }
