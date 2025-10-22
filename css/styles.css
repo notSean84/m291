@@ -259,6 +259,31 @@ button {
   background: #f75555;
 }
 
+.status-red {
+  color: #dc2626;
+  /* rot */
+  font-weight: 600;
+}
+
+.status-green {
+  color: #16a34a;
+  /* grün */
+  font-weight: 600;
+}
+
+.status-yellow {
+  color: #ca8a04;
+  /* gelb */
+  font-weight: 600;
+}
+
+.status-blue {
+  color: #3b82f6;
+  /* blau */
+  font-weight: 600;
+}
+
+
 /* Popup */
 .popup-overlay {
   position: fixed;
@@ -307,7 +332,7 @@ button {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  justify-content: space-between  ;
+  justify-content: space-between;
 }
 
 .checkbox-wrapper .tgl {

@@ -101,7 +101,18 @@
                             <td>{{ formatDate(item.Date) }}</td>
                             <td>{{ formatHours(item.Minutes) }}</td>
                             <td>{{ item.Fullname }}</td>
-                            <td>{{ item.Approved }}</td>
+                            <!--                            <td>{{ approvedText(item.Approved) }}</td>-->
+                            <td :class="{
+                                'status-red': item.Approved == 0,
+                                'status-green': item.Approved == 1,
+                                'status-yellow': item.Approved == 2,
+                                'status-blue': item.Approved == 3
+                                }">
+                                {{ approvedText(item.Approved) }}
+                            </td>
+
+
+
                             <td class="actions">
                                 <button class="edit-btn" @click="editEntry(item)">✍️</button>
                                 <button class="delete-btn" @click="deleteEntry(item.ID)">❌</button>
@@ -136,8 +147,6 @@
                 </div>
             </div>
         </section>
-
-
 
         <!-- Projekte -->
         <section class="recording" id="projects">
@@ -318,6 +327,15 @@
                     return isNaN(val) ? '0.0' : (val / 60).toFixed(1)
                 }
 
+                function approvedText(value) {
+                    switch (Number(value)) {
+                        case 0: return 'Abgelehnt'
+                        case 1: return 'Angenommen'
+                        case 2: return 'Ausstehend'
+                        default: return 'Unbekannt'
+                    }
+                }
+
                 async function saveTimesheet() {
                     try {
                         const student = students.value.find(s => s.Fullname === newEntry.value.studentName)
@@ -333,7 +351,7 @@
                             StudentID: student.ID,
                             Date: newEntry.value.date,
                             Minutes: parseFloat(newEntry.value.hours) * 60,
-                            Approved: 3
+                            Approved: 2
                         }
 
                         let response
@@ -534,6 +552,7 @@
                     newEntry,
                     isEditing,
                     formatDate,
+                    approvedText,
                     formatHours,
                     saveTimesheet,
                     editEntry,
