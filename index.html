@@ -233,16 +233,67 @@
         </section>
 
         <section class="approval" id="approval">
-            <section class="site-header">
-                <h2>Bewilligung</h2>
-                <p class="subtitle">Übersicht von Anträge die zu Bewilligen sind</p>
+            <section class="approval" id="approval">
+                <section class="site-header">
+                    <h2>Bewilligung</h2>
+                    <p class="subtitle">Übersicht von Anträge die zu Bewilligen sind</p>
+                </section>
+
+                <section class="section">
+                    <!-- Filter -->
+                    <div class="filter-bar" style="display:flex; gap:1rem; align-items:center; margin-bottom:1rem;">
+                        <label for="approval-filter" style="font-weight:600;">Status:</label>
+                        <select id="approval-filter" v-model="approvalFilter" class="name-select">
+                            <option value="all">Alle</option>
+                            <option value="pending">Ausstehend</option>
+                            <option value="approved">Angenommen</option>
+                            <option value="rejected">Abgelehnt</option>
+                        </select>
+                    </div>
+
+                    <!-- Tabelle -->
+                    <table v-if="approvalsFiltered.length > 0">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Projekt</th>
+                                <th>Datum</th>
+                                <th>Stunden</th>
+                                <th>Status</th>
+                                <th>Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="item in approvalsFiltered" :key="item.ID">
+                                <td>{{ item.Fullname }}</td>
+                                <td>{{ item.ProjectName }}</td>
+                                <td>{{ formatDate(item.Date) }}</td>
+                                <td>{{ formatHours(item.Minutes) }}</td>
+                                <td :class="{
+                'status-red': Number(item.Approved) === 0,
+                'status-green': Number(item.Approved) === 1,
+                'status-yellow': Number(item.Approved) === 2
+              }">
+                                    {{ approvedText(item.Approved) }}
+                                </td>
+                                <td class="actions" style="display:flex; gap:.5rem;">
+                                    <button class="site-header-button" @click="setApproval(item, 1)">✅ Annehmen</button>
+                                    <button class="delete-btn" @click="setApproval(item, 0)">🚫 Ablehnen</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p v-else style="color: var(--text-muted)">Keine Einträge für diesen Filter.</p>
+                </section>
             </section>
+
         </section>
     </main>
 
     <!-- Vue App (GENAU EINMAL) -->
     <script type="module">
-        import { createApp, ref, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+        import { createApp, ref, computed, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
 
         const apiUrl = 'https://projects.sbw.media/'
 
@@ -282,6 +333,60 @@
                     Coach: '',
                     Status: 0
                 })
+
+                /* ---------- Approval / Bewilligung ---------- */
+                const approvalFilter = ref('all') // 'all' | 'pending' | 'approved' | 'rejected'
+
+                const approvalsFiltered = computed(() => {
+                    switch (approvalFilter.value) {
+                        case 'pending':
+                            return timesheetView.value.filter(x => Number(x.Approved) === 2)
+                        case 'approved':
+                            return timesheetView.value.filter(x => Number(x.Approved) === 1)
+                        case 'rejected':
+                            return timesheetView.value.filter(x => Number(x.Approved) === 0)
+                        default:
+                            return timesheetView.value
+                    }
+                })
+
+                async function setApproval(item, status) {
+                    try {
+                        // IDs über Namen herleiten (wie beim Editieren/Speichern)
+                        const student = students.value.find(s => s.Fullname === item.Fullname)
+                        const project = projects.value.find(p => p.Name === item.ProjectName)
+
+                        if (!student || !project) {
+                            alert('Fehler: Konnte Student oder Projekt nicht finden.')
+                            return
+                        }
+
+                        // Datum sauber in YYYY-MM-DD (falls vom View mit Zeit kommt)
+                        const dateOnly = (item.Date || '').split('T')[0]
+
+                        const payload = {
+                            ProjectID: project.ID,
+                            StudentID: student.ID,
+                            Date: dateOnly,
+                            Minutes: Number(item.Minutes) || 0,
+                            Approved: Number(status) // 0 = abgelehnt, 1 = angenommen
+                        }
+
+                        const res = await fetch(apiUrl + 'Timesheet/' + item.ID, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        })
+                        if (!res.ok) throw new Error('Fehler beim Aktualisieren')
+
+                        // Optimistisches Update im UI
+                        item.Approved = Number(status)
+                    } catch (err) {
+                        console.error(err)
+                        alert('Fehler: ' + err.message)
+                    }
+                }
+
 
                 /* ---------- Gemeinsames Laden ---------- */
                 async function fetchData() {
@@ -573,7 +678,12 @@
                     projectTypes,
                     customers,
                     typeName,
-                    customerName
+                    customerName,
+
+                    /* Approval */
+                    approvalFilter,
+                    approvalsFiltered,
+                    setApproval
                 }
             }
         }).mount('#app')
