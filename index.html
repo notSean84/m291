@@ -18,9 +18,9 @@
             <ul class="side-bar-list">
                 <li class="side-bar-list-item"><a href="#dashboard" class="active">Dashboard</a></li>
                 <li class="side-bar-list-item"><a href="#recording">Zeiterfassung</a></li>
-                <li class="side-bar-list-item" id="approval-nav"><a href="#approval">Bewilligung</a></li>
                 <li class="side-bar-list-item"><a href="#projects">Projekte</a></li>
                 <li class="side-bar-list-item"><a href="#allocation">Zuweisungen</a></li>
+                <li class="side-bar-list-item" id="approval-nav"><a href="#approval">Bewilligung</a></li>
             </ul>
         </section>
 
@@ -91,6 +91,7 @@
                             <th>Datum</th>
                             <th>Stunden</th>
                             <th>Student</th>
+                            <th>Status</th>
                             <th>Aktion</th>
                         </tr>
                     </thead>
@@ -100,6 +101,7 @@
                             <td>{{ formatDate(item.Date) }}</td>
                             <td>{{ formatHours(item.Minutes) }}</td>
                             <td>{{ item.Fullname }}</td>
+                            <td>{{ item.Approved }}</td>
                             <td class="actions">
                                 <button class="edit-btn" @click="editEntry(item)">✍️</button>
                                 <button class="delete-btn" @click="deleteEntry(item.ID)">❌</button>
@@ -135,12 +137,7 @@
             </div>
         </section>
 
-        <section class="approval" id="approval">
-            <section class="site-header">
-                <h2>Bewilligung</h2>
-                <p class="subtitle">Übersicht von Anträge die zu Bewilligen sind</p>
-            </section>
-        </section>
+
 
         <!-- Projekte -->
         <section class="recording" id="projects">
@@ -225,6 +222,13 @@
                 <button class="site-header-button" @click="showPopupRecord = true">+ Neue Zuweisungen</button>
             </section>
         </section>
+
+        <section class="approval" id="approval">
+            <section class="site-header">
+                <h2>Bewilligung</h2>
+                <p class="subtitle">Übersicht von Anträge die zu Bewilligen sind</p>
+            </section>
+        </section>
     </main>
 
     <!-- Vue App (GENAU EINMAL) -->
@@ -250,7 +254,7 @@
                     ProjectName: '',
                     studentName: '',
                     date: '',
-                    hours: ''
+                    hours: '',
                 })
                 const isEditing = ref(false)
 
@@ -328,7 +332,8 @@
                             ProjectID: project.ID,
                             StudentID: student.ID,
                             Date: newEntry.value.date,
-                            Minutes: parseFloat(newEntry.value.hours) * 60
+                            Minutes: parseFloat(newEntry.value.hours) * 60,
+                            Approved: 3
                         }
 
                         let response

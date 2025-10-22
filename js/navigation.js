@@ -26,9 +26,9 @@ export function initNavigation() {
             const sectionMap = {
                 'Dashboard': 'dashboard',
                 'Zeiterfassung': 'recording',
-                'Bewilligung': 'approval',
                 'Projekte': 'projects',
-                'Zuweisungen': 'allocation'
+                'Zuweisungen': 'allocation',
+                'Bewilligung': 'approval'
             };
 
             const sectionId = sectionMap[e.target.textContent];
