@@ -413,46 +413,103 @@
 
         createApp({
             setup() {
-                /* ---------- Timesheets ---------- */
+                /* =========================
+                 * 1) BASIS-STATE / STORES
+                 * ========================= */
+                // Serverdaten
                 const timesheetView = ref([])
                 const students = ref([])
-                const projects = ref([]) // wird auch von der Projekt-Tabelle verwendet
+                const projects = ref([])
                 const projectTypes = ref([])
                 const customers = ref([])
+
+                // UI-Flags
                 const isLoading = ref(false)
                 const error = ref(null)
-                const showPopupRecord = ref(false)
 
-                const newEntry = ref({
-                    ID: null,
-                    ProjectName: '',
-                    studentName: '',
-                    date: '',
-                    hours: '',
-                })
+                /* ---------- Login ---------- */
+                const selectedYear = ref('')
+                const selectedName = ref('')
+                const isAdmin = ref(false)
+                const isLoggedIn = ref(false)
+                const loggedInStudent = ref(null)
+
+                /* ---------- Recording (Timesheet-Dialog) ---------- */
+                const showPopupRecord = ref(false)
+                const newEntry = ref({ ID: null, ProjectName: '', studentName: '', date: '', hours: '' })
                 const isEditing = ref(false)
 
-                /* ---------- Projekte ---------- */
+                /* ---------- Projects (Projekt-Dialog) ---------- */
                 const showProjectPopup = ref(false)
                 const isEditingProject = ref(false)
                 const projectError = ref(null)
                 const projectForm = ref({
-                    ID: null,
-                    ParentID: 0,
-                    Number: '',
-                    Name: '',
-                    Description: '',
-                    TypeID: 0,
-                    CustomerID: 0,
-                    Coach: '',
-                    Status: 0
+                    ID: null, ParentID: 0, Number: '', Name: '', Description: '',
+                    TypeID: 0, CustomerID: 0, Coach: '', Status: 0
                 })
 
-                /* ---------- Approval / Bewilligung ---------- */
+                /* ---------- Approval ---------- */
                 const approvalFilter = ref('all') // 'all' | 'pending' | 'approved' | 'rejected'
 
+                /* ---------- Allocation ---------- */
+                const roleFilter = ref('student') // 'student' | 'coach'
+                const selectedPerson = ref('')    // Fullname des Schülers oder Coach-Name
+
+
+                /* =====================================
+                 * 2) COMPUTEDS: LOGIN & LISTEN-FILTER
+                 * ===================================== */
+                // Jahr aus Student-Objekt
+                function studentYear(s) {
+                    const y = Number(s?.Year)
+                    return Number.isFinite(y) && y > 0 ? y : null
+                }
+
+                // Login-Optionen
+                const yearOptions = computed(() => {
+                    const set = new Set()
+                    for (const s of (students.value || [])) {
+                        const y = studentYear(s)
+                        if (y !== null) set.add(y)
+                    }
+                    return Array.from(set).sort((a, b) => a - b)
+                })
+
+                const nameOptions = computed(() => {
+                    if (selectedYear.value === '') return []
+                    const yr = Number(selectedYear.value)
+                    return (students.value || [])
+                        .filter(s => studentYear(s) === yr)
+                        .sort((a, b) => (a.Fullname || '').localeCompare(b.Fullname || '', 'de'))
+                })
+
+                // Basiseinschränkung aller Timesheets (Login/Admin)
+                const baseTimesheets = computed(() => {
+                    let list = timesheetView.value || []
+                    if (isLoggedIn.value && !isAdmin.value && loggedInStudent.value) {
+                        const id = Number(loggedInStudent.value.ID)
+                        const name = loggedInStudent.value.Fullname
+                        list = list.filter(x => Number(x.StudentID) === id || x.Fullname === name)
+                    }
+                    return list
+                })
+
+                // Tabellen-spezifische gefilterte Listen
+                const timesheetViewFiltered = computed(() => baseTimesheets.value)
+
+                const projectsFiltered = computed(() => {
+                    if (!(isLoggedIn.value && !isAdmin.value && loggedInStudent.value)) return projects.value || []
+                    const involved = new Set((baseTimesheets.value || []).map(x => x.ProjectName))
+                    return (projects.value || []).filter(p => involved.has(p.Name))
+                })
+
+
+                /* ========================================
+                 * 3) COMPUTEDS: APPROVAL & DASHBOARD
+                 * ======================================== */
+                // Approval-Liste (mit Status-Filter)
                 const approvalsFiltered = computed(() => {
-                    const src = baseTimesheets.value // <-- statt: timesheetView.value
+                    const src = baseTimesheets.value
                     switch (approvalFilter.value) {
                         case 'pending': return src.filter(x => Number(x.Approved) === 2)
                         case 'approved': return src.filter(x => Number(x.Approved) === 1)
@@ -461,50 +518,51 @@
                     }
                 })
 
+                // Dashboard-Kennzahlen
+                const sourceTimesheets = computed(() => baseTimesheets.value || (timesheetView.value || []))
 
-                async function setApproval(item, status) {
-                    try {
-                        // IDs über Namen herleiten (wie beim Editieren/Speichern)
-                        const student = students.value.find(s => s.Fullname === item.Fullname)
-                        const project = projects.value.find(p => p.Name === item.ProjectName)
-
-                        if (!student || !project) {
-                            alert('Fehler: Konnte Student oder Projekt nicht finden.')
-                            return
-                        }
-
-                        // Datum sauber in YYYY-MM-DD (falls vom View mit Zeit kommt)
-                        const dateOnly = (item.Date || '').split('T')[0]
-
-                        const payload = {
-                            ProjectID: project.ID,
-                            StudentID: student.ID,
-                            Date: dateOnly,
-                            Minutes: Number(item.Minutes) || 0,
-                            Approved: Number(status) // 0 = abgelehnt, 1 = angenommen
-                        }
-
-                        const res = await fetch(apiUrl + 'Timesheet/' + item.ID, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        })
-                        if (!res.ok) throw new Error('Fehler beim Aktualisieren')
-
-                        // Optimistisches Update im UI
-                        item.Approved = Number(status)
-                    } catch (err) {
-                        console.error(err)
-                        alert('Fehler: ' + err.message)
-                    }
+                function sumMinutes(list) {
+                    return list.reduce((acc, x) => acc + (Number(x.Minutes) || 0), 0)
                 }
 
+                const dashboardStats = computed(() => {
+                    const list = sourceTimesheets.value
+                    const pendingCount = list.filter(x => Number(x.Approved) === 2).length
+                    const rejectedCount = list.filter(x => Number(x.Approved) === 0).length
+                    const approvedHrs = (sumMinutes(list.filter(x => Number(x.Approved) === 1)) / 60).toFixed(1)
+                    const totalHrs = (sumMinutes(list) / 60).toFixed(1)
+                    return { pendingCount, rejectedCount, approvedHrs, totalHrs }
+                })
 
-                /* ---------- Allocation / Beteiligungen ---------- */
-                const roleFilter = ref('student') // 'student' | 'coach'
-                const selectedPerson = ref('')    // Voller Name des Schülers ODER Coach-Name (wie im Projekt gespeichert)
+                // Dashboard-Extras
+                const topProjects = computed(() => {
+                    const map = new Map()
+                    for (const t of sourceTimesheets.value) {
+                        const key = t.ProjectName || '—'
+                        map.set(key, (map.get(key) || 0) + (Number(t.Minutes) || 0))
+                    }
+                    return Array.from(map.entries())
+                        .map(([name, minutes]) => ({ name, hours: +(minutes / 60).toFixed(1) }))
+                        .sort((a, b) => b.hours - a.hours)
+                        .slice(0, 3)
+                })
 
-                // Optionen für die Personenauswahl
+                const monthHours = computed(() => {
+                    const now = new Date()
+                    const start = new Date(now.getFullYear(), now.getMonth(), 1)
+                    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+                    const mins = sourceTimesheets.value.reduce((acc, x) => {
+                        const d = new Date(x.Date)
+                        return (d >= start && d < end) ? acc + (Number(x.Minutes) || 0) : acc
+                    }, 0)
+                    return (mins / 60).toFixed(1)
+                })
+
+
+                /* =======================================
+                 * 4) COMPUTEDS: ALLOCATION / BETEILIGUNG
+                 * ======================================= */
+                // Auswahloptionen
                 const studentOptions = computed(() =>
                     (students.value || [])
                         .map(s => s.Fullname)
@@ -512,7 +570,6 @@
                         .sort((a, b) => a.localeCompare(b, 'de'))
                 )
 
-                // Coach-Namen aus Projekten ableiten (freie Texteingabe im Feld Coach)
                 const coachOptions = computed(() => {
                     const set = new Set()
                     for (const p of (projects.value || [])) {
@@ -522,10 +579,7 @@
                     return Array.from(set).sort((a, b) => a.localeCompare(b, 'de'))
                 })
 
-                // Personenliste je nach Rolle
-                const personOptions = computed(() =>
-                    roleFilter.value === 'student' ? studentOptions.value : coachOptions.value
-                )
+                const personOptions = computed(() => roleFilter.value === 'student' ? studentOptions.value : coachOptions.value)
 
                 // schnelle Lookups
                 const projectTypeById = computed(() => {
@@ -544,97 +598,31 @@
                     return m
                 })
 
-                // Aggregation: Einträge nach ProjectName gruppieren
+                // Gruppierung nach Projekt
                 function aggregateTimesheets(list) {
                     const map = new Map()
                     for (const ts of list) {
                         const key = ts.ProjectName
                         if (!map.has(key)) {
-                            map.set(key, {
-                                ProjectName: key,
-                                Minutes: 0,
-                                Entries: 0,
-                                LastDate: null
-                            })
+                            map.set(key, { ProjectName: key, Minutes: 0, Entries: 0, LastDate: null })
                         }
                         const row = map.get(key)
                         row.Minutes += Number(ts.Minutes) || 0
                         row.Entries += 1
                         const d = new Date(ts.Date)
-                        if (!isNaN(d)) {
-                            if (!row.LastDate || d > row.LastDate) row.LastDate = d
-                        }
+                        if (!isNaN(d)) row.LastDate = (!row.LastDate || d > row.LastDate) ? d : row.LastDate
                     }
                     return Array.from(map.values())
                 }
 
-                /* ---------- Dashboard KPIs ---------- */
-                const sourceTimesheets = computed(() => {
-                    // nutzt login-gefilterte Liste, falls vorhanden – sonst alle
-                    return (typeof baseTimesheets !== 'undefined' && baseTimesheets.value)
-                        ? baseTimesheets.value
-                        : (timesheetView.value || [])
-                })
-
-                function sumMinutes(list) {
-                    return list.reduce((acc, x) => acc + (Number(x.Minutes) || 0), 0)
-                }
-
-                const dashboardStats = computed(() => {
-                    const list = sourceTimesheets.value
-
-                    const pendingCount = list.filter(x => Number(x.Approved) === 2).length
-                    const rejectedCount = list.filter(x => Number(x.Approved) === 0).length
-                    const approvedHrs = (sumMinutes(list.filter(x => Number(x.Approved) === 1)) / 60).toFixed(1)
-                    const totalHrs = (sumMinutes(list) / 60).toFixed(1)
-
-                    return {
-                        pendingCount,
-                        rejectedCount,
-                        approvedHrs,
-                        totalHrs
-                    }
-                })
-
-                /* ---------- (Optional) Extras ---------- */
-                // A) Top 3 Projekte nach Stunden (aus allen Einträgen der Quelle)
-                const topProjects = computed(() => {
-                    const map = new Map()
-                    for (const t of sourceTimesheets.value) {
-                        const key = t.ProjectName || '—'
-                        map.set(key, (map.get(key) || 0) + (Number(t.Minutes) || 0))
-                    }
-                    return Array.from(map.entries())
-                        .map(([name, minutes]) => ({ name, hours: +(minutes / 60).toFixed(1) }))
-                        .sort((a, b) => b.hours - a.hours)
-                        .slice(0, 3)
-                })
-
-                // B) Stunden in diesem Monat
-                const monthHours = computed(() => {
-                    const now = new Date()
-                    const start = new Date(now.getFullYear(), now.getMonth(), 1)
-                    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-                    const mins = sourceTimesheets.value.reduce((acc, x) => {
-                        const d = new Date(x.Date)
-                        return (d >= start && d < end) ? acc + (Number(x.Minutes) || 0) : acc
-                    }, 0)
-                    return (mins / 60).toFixed(1)
-                })
-
-
-                // Hauptdaten für die Tabelle
+                // Tabellenzeilen für Allocation
                 const involvementRows = computed(() => {
                     const person = (selectedPerson.value || '').trim()
                     if (!person) return []
 
-                    // Rollen-Logik
                     if (roleFilter.value === 'student') {
-                        // Alle Timesheets dieses Schülers
                         const mine = (timesheetView.value || []).filter(x => (x.Fullname || '').trim() === person)
                         const grouped = aggregateTimesheets(mine)
-
-                        // mit Projektdetails anreichern
                         return grouped.map(g => {
                             const p = projectByName.value.get(g.ProjectName)
                             const type = p ? projectTypeById.value.get(Number(p.TypeID)) : null
@@ -652,11 +640,9 @@
                         }).sort((a, b) => (b.LastDate?.getTime() || 0) - (a.LastDate?.getTime() || 0))
                     }
 
-                    // role = 'coach' → alle Projekte dieses Coach + zugehörige Stunden aus Timesheets
+                    // role = 'coach'
                     const myProjects = (projects.value || []).filter(p => (p.Coach || '').trim() === person)
                     const byProjectName = new Map()
-
-                    // Timesheets zu diesen Projekten aufsummieren
                     for (const p of myProjects) byProjectName.set(p.Name, { Minutes: 0, Entries: 0, LastDate: null })
                     for (const ts of (timesheetView.value || [])) {
                         if (byProjectName.has(ts.ProjectName)) {
@@ -664,12 +650,9 @@
                             cell.Minutes += Number(ts.Minutes) || 0
                             cell.Entries += 1
                             const d = new Date(ts.Date)
-                            if (!isNaN(d)) {
-                                if (!cell.LastDate || d > cell.LastDate) cell.LastDate = d
-                            }
+                            if (!isNaN(d)) cell.LastDate = (!cell.LastDate || d > cell.LastDate) ? d : cell.LastDate
                         }
                     }
-
                     return myProjects.map(p => {
                         const acc = byProjectName.get(p.Name) || { Minutes: 0, Entries: 0, LastDate: null }
                         const type = projectTypeById.value.get(Number(p.TypeID))
@@ -688,55 +671,19 @@
                 })
 
 
-
-                /* ---------- Login / Lehrgang → Name ---------- */
-                const selectedYear = ref('')
-                const selectedName = ref('')
-                const isAdmin = ref(false)
-                const isLoggedIn = ref(false)
-                const loggedInStudent = ref(null)
-
-
-                // Hilfsfunktion: "Lehrgang/Jahr" aus Student-Objekt lesen (robust auf verschiedene Feldnamen)
-                function studentYear(s) {
-                    const y = Number(s?.Year)
-                    return Number.isFinite(y) && y > 0 ? y : null
-                }
-
-                // Alle Lehrgänge aus Studenten ableiten
-                const yearOptions = computed(() => {
-                    const set = new Set()
-                    for (const s of (students.value || [])) {
-                        const y = studentYear(s)
-                        if (y !== null) set.add(y)
-                    }
-                    return Array.from(set).sort((a, b) => a - b) // numerisch
-                })
-
-                const nameOptions = computed(() => {
-                    if (selectedYear.value === '') return []
-                    const yr = Number(selectedYear.value)
-                    return (students.value || [])
-                        .filter(s => studentYear(s) === yr)
-                        .sort((a, b) => (a.Fullname || '').localeCompare(b.Fullname || '', 'de'))
-                })
-
-
+                /* ============================
+                 * 5) ACTIONS / METHODS
+                 * ============================ */
+                // Login
                 function handleLogin() {
                     const yr = Number(selectedYear.value)
                     const nm = String(selectedName.value || '')
                     const s = (students.value || []).find(x => studentYear(x) === yr && x.Fullname === nm)
-
-                    if (!s) {
-                        alert('Bitte gültigen Lehrgang und Namen wählen.')
-                        return
-                    }
+                    if (!s) { alert('Bitte gültigen Lehrgang und Namen wählen.'); return }
                     loggedInStudent.value = s
                     isLoggedIn.value = true
-
-                    // (Optional) Allocation-Default auf eingeloggte Person setzen
-                    if (typeof roleFilter !== 'undefined') roleFilter.value = 'student'
-                    if (typeof selectedPerson !== 'undefined') selectedPerson.value = s.Fullname
+                    roleFilter.value = 'student'
+                    selectedPerson.value = s.Fullname
                 }
 
                 function logout() {
@@ -747,77 +694,17 @@
                     isAdmin.value = false
                 }
 
-
                 watch(selectedYear, () => { selectedName.value = '' })
 
-
-
-                /* ---------- Gemeinsamer Filter: Basis-Timesheets je nach Login/Admin ---------- */
-                const baseTimesheets = computed(() => {
-                    let list = timesheetView.value || []
-                    if (isLoggedIn.value && !isAdmin.value && loggedInStudent.value) {
-                        const id = Number(loggedInStudent.value.ID)
-                        const name = loggedInStudent.value.Fullname
-                        list = list.filter(x => Number(x.StudentID) === id || x.Fullname === name)
-                    }
-                    return list
-                })
-
-                const timesheetViewFiltered = computed(() => baseTimesheets.value)
-
-                const projectsFiltered = computed(() => {
-                    if (!(isLoggedIn.value && !isAdmin.value && loggedInStudent.value)) return projects.value || []
-                    const involved = new Set((baseTimesheets.value || []).map(x => x.ProjectName))
-                    return (projects.value || []).filter(p => involved.has(p.Name))
-                })
-
-
-
-
-                /* ---------- Gemeinsames Laden ---------- */
-                async function fetchData() {
-                    try {
-                        isLoading.value = true
-                        const [ts, st, pr, pt, cu] = await Promise.all([
-                            fetch(apiUrl + 'TimesheetView'),
-                            fetch(apiUrl + 'Student'),
-                            fetch(apiUrl + 'Project'),
-                            fetch(apiUrl + 'Projecttype'),
-                            fetch(apiUrl + 'CustomerView')
-                        ])
-
-                        if (!ts.ok || !st.ok || !pr.ok || !pt.ok || !cu.ok) throw new Error('Fehler beim Laden der Daten')
-
-                        const tsData = await ts.json()
-                        const stData = await st.json()
-                        const prData = await pr.json()
-                        const ptData = await pt.json()
-                        const cuData = await cu.json()
-
-                        timesheetView.value = tsData.resources || tsData
-                        students.value = stData.resources || stData
-                        projects.value = prData.resources || prData
-                        projectTypes.value = ptData.resources || ptData
-                        customers.value = cuData.resources || cuData
-                    } catch (err) {
-                        error.value = err.message
-                        console.error('API-Fehler:', err)
-                    } finally {
-                        isLoading.value = false
-                    }
-                }
-
-                /* ---------- Timesheet Helfer ---------- */
+                // Timesheet-Helfer
                 function formatDate(dateString) {
                     const date = new Date(dateString)
                     return isNaN(date.getTime()) ? '' : date.toLocaleDateString('de-CH')
                 }
-
                 function formatHours(minutes) {
                     const val = Number(minutes)
                     return isNaN(val) ? '0.0' : (val / 60).toFixed(1)
                 }
-
                 function approvedText(value) {
                     switch (Number(value)) {
                         case 0: return 'Abgelehnt'
@@ -831,11 +718,7 @@
                     try {
                         const student = students.value.find(s => s.Fullname === newEntry.value.studentName)
                         const project = projects.value.find(p => p.Name === newEntry.value.ProjectName)
-
-                        if (!student || !project) {
-                            alert('Bitte gültigen Studenten und ein Projekt wählen')
-                            return
-                        }
+                        if (!student || !project) { alert('Bitte gültigen Studenten und ein Projekt wählen'); return }
 
                         const payload = {
                             ProjectID: project.ID,
@@ -848,15 +731,11 @@
                         let response
                         if (isEditing.value && newEntry.value.ID) {
                             response = await fetch(apiUrl + 'Timesheet/' + newEntry.value.ID, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload)
+                                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                             })
                         } else {
                             response = await fetch(apiUrl + 'Timesheet', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload)
+                                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                             })
                         }
 
@@ -896,7 +775,36 @@
                     }
                 }
 
-                /* ---------- Lookups ---------- */
+                // Approval-Status setzen
+                async function setApproval(item, status) {
+                    try {
+                        const student = students.value.find(s => s.Fullname === item.Fullname)
+                        const project = projects.value.find(p => p.Name === item.ProjectName)
+                        if (!student || !project) { alert('Fehler: Konnte Student oder Projekt nicht finden.'); return }
+
+                        const dateOnly = (item.Date || '').split('T')[0]
+                        const payload = {
+                            ProjectID: project.ID,
+                            StudentID: student.ID,
+                            Date: dateOnly,
+                            Minutes: Number(item.Minutes) || 0,
+                            Approved: Number(status) // 0/1
+                        }
+
+                        const res = await fetch(apiUrl + 'Timesheet/' + item.ID, {
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                        })
+                        if (!res.ok) throw new Error('Fehler beim Aktualisieren')
+
+                        // Optimistisch updaten
+                        item.Approved = Number(status)
+                    } catch (err) {
+                        console.error(err)
+                        alert('Fehler: ' + err.message)
+                    }
+                }
+
+                // Projekthandling
                 function typeName(id) {
                     const t = projectTypes.value.find(x => Number(x.ID) === Number(id))
                     return t ? t.Name : '—'
@@ -906,20 +814,12 @@
                     return c ? c.Name : '—'
                 }
 
-                /* ---------- Projekt-Methoden ---------- */
                 function openProjectCreate() {
                     isEditingProject.value = false
                     projectError.value = null
                     projectForm.value = {
-                        ID: null,
-                        ParentID: 0,
-                        Number: '',
-                        Name: '',
-                        Description: '',
-                        TypeID: 0,
-                        CustomerID: 0,
-                        Coach: '',
-                        Status: 0
+                        ID: null, ParentID: 0, Number: '', Name: '', Description: '',
+                        TypeID: 0, CustomerID: 0, Coach: '', Status: 0
                     }
                     showProjectPopup.value = true
                 }
@@ -941,14 +841,11 @@
                     showProjectPopup.value = true
                 }
 
-                function closeProjectPopup() {
-                    showProjectPopup.value = false
-                }
+                function closeProjectPopup() { showProjectPopup.value = false }
 
                 async function saveProject() {
                     try {
                         projectError.value = null
-
                         if (!projectForm.value.Name || projectForm.value.Name.trim() === '') {
                             projectError.value = 'Bitte einen Projektnamen angeben.'
                             return
@@ -968,15 +865,11 @@
                         let response
                         if (isEditingProject.value && projectForm.value.ID) {
                             response = await fetch(apiUrl + 'Project/' + projectForm.value.ID, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload)
+                                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                             })
                         } else {
                             response = await fetch(apiUrl + 'Project', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload)
+                                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                             })
                         }
 
@@ -1005,12 +898,43 @@
                     }
                 }
 
-                onMounted(() => {
-                    fetchData()
-                    initNavigation()
-                })
 
-                // Kleine, robuste Navigation (ersetzt externes navigation.js).
+                /* ============================
+                 * 6) DATENLADEN & NAVIGATION
+                 * ============================ */
+                async function fetchData() {
+                    try {
+                        isLoading.value = true
+                        const [ts, st, pr, pt, cu] = await Promise.all([
+                            fetch(apiUrl + 'TimesheetView'),
+                            fetch(apiUrl + 'Student'),
+                            fetch(apiUrl + 'Project'),
+                            fetch(apiUrl + 'Projecttype'),
+                            fetch(apiUrl + 'CustomerView')
+                        ])
+
+                        if (!ts.ok || !st.ok || !pr.ok || !pt.ok || !cu.ok) throw new Error('Fehler beim Laden der Daten')
+
+                        const tsData = await ts.json()
+                        const stData = await st.json()
+                        const prData = await pr.json()
+                        const ptData = await pt.json()
+                        const cuData = await cu.json()
+
+                        timesheetView.value = tsData.resources || tsData
+                        students.value = stData.resources || stData
+                        projects.value = prData.resources || prData
+                        projectTypes.value = ptData.resources || ptData
+                        customers.value = cuData.resources || cuData
+                    } catch (err) {
+                        error.value = err.message
+                        console.error('API-Fehler:', err)
+                    } finally {
+                        isLoading.value = false
+                    }
+                }
+
+                // Hash-Navigation
                 function initNavigation() {
                     const links = Array.from(document.querySelectorAll('.side-bar-list a'))
                     const sections = Array.from(document.querySelectorAll('main > section'))
@@ -1018,92 +942,61 @@
 
                     function activate(hash) {
                         const target = hash && hash.startsWith('#') ? hash.slice(1) : 'dashboard'
-                        // Links aktiv setzen
                         links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + target))
-                        // Sections aktiv setzen
                         sections.forEach(sec => sec.classList.toggle('active', sec.id === target))
                     }
 
-                    // Initial
                     activate(location.hash || '#dashboard')
-                    // Link-Klicks
                     links.forEach(a => a.addEventListener('click', () => setTimeout(() => activate(location.hash), 0)))
-                    // Hash-Änderungen (z. B. Back/Forward)
                     window.addEventListener('hashchange', () => activate(location.hash))
                 }
 
+                onMounted(() => {
+                    fetchData()
+                    initNavigation()
+                })
+
+
+                /* ============================
+                 * 7) EXPOSE TO TEMPLATE
+                 * ============================ */
                 return {
-                    /* Timesheets */
-                    timesheetView,
-                    students,
-                    projects,
-                    isLoading,
-                    error,
-                    showPopupRecord,
-                    newEntry,
-                    isEditing,
-                    formatDate,
-                    approvedText,
-                    formatHours,
-                    saveTimesheet,
-                    editEntry,
-                    deleteEntry,
+                    // Daten
+                    timesheetView, students, projects, projectTypes, customers,
 
-                    /* Projekte */
-                    projectError,
-                    showProjectPopup,
-                    isEditingProject,
-                    projectForm,
-                    openProjectCreate,
-                    editProject,
-                    closeProjectPopup,
-                    saveProject,
-                    deleteProject,
-
-                    /* Lookups */
-                    projectTypes,
-                    customers,
-                    typeName,
-                    customerName,
-
-                    /* Approval */
-                    approvalFilter,
-                    approvalsFiltered,
-                    setApproval,
-
-                    /* Allocation */
-                    roleFilter,
-                    selectedPerson,
-                    personOptions,
-                    involvementRows,
+                    // UI
+                    isLoading, error,
 
                     // Login
-                    selectedYear,
-                    selectedName,
-                    isAdmin,
-                    isLoggedIn,
-                    handleLogin,
-                    yearOptions,
-                    nameOptions,
-                    handleLogin,
-                    logout,
-                    isLoggedIn,
-                    loggedInStudent,
+                    selectedYear, selectedName, isAdmin, isLoggedIn, loggedInStudent,
+                    yearOptions, nameOptions, handleLogin, logout,
+
+                    // Recording
+                    showPopupRecord, newEntry, isEditing, saveTimesheet, editEntry, deleteEntry,
+
+                    // Projects
+                    showProjectPopup, isEditingProject, projectError, projectForm,
+                    openProjectCreate, editProject, closeProjectPopup, saveProject, deleteProject,
+
+                    // Helpers
+                    formatDate, formatHours, approvedText, typeName, customerName,
+
+                    // Approval
+                    approvalFilter, approvalsFiltered, setApproval,
+
+                    // Allocation
+                    roleFilter, selectedPerson, personOptions, involvementRows,
 
                     // Gefilterte Listen
-                    timesheetViewFiltered,
-                    projectsFiltered,
-                    baseTimesheets,
+                    baseTimesheets, timesheetViewFiltered, projectsFiltered,
 
-                    dashboardStats,
-                    topProjects,
-                    monthHours,
-
-
+                    // Dashboard
+                    dashboardStats, topProjects, monthHours,
                 }
             }
         }).mount('#app')
     </script>
+
 </body>
 
 </html>
