@@ -310,12 +310,16 @@ button {
 }
 
 /* Rot: Löschen */
-.delete-btn {
+.delete-btn, .disapprove-btn {
   background-color: #f75555;
 }
 
 .delete-btn svg {
   stroke: white;
+}
+
+.approve-btn {
+  background-color: #22c55e;
 }
 
 /* allgemeiner Badge */
