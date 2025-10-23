@@ -18,9 +18,9 @@
 <body id="app">
     <nav class="side-bar">
         <section class="navigation">
-            <section class="side-bar-title">
-                <h1>Projektzeit</h1>
-            </section>
+            <div class="login-info">
+                <p>Guten Tag<strong v-if="isLoggedIn">, {{ loggedInStudent.Name }}!</strong></p>
+            </div>
             <ul class="side-bar-list">
                 <li class="side-bar-list-item"><a href="#dashboard" class="active">Dashboard</a></li>
                 <li class="side-bar-list-item"><a href="#recording">Zeiterfassung</a></li>
@@ -55,13 +55,9 @@
                 </div>
             </div>
             <div v-if="isLoggedIn" class="login-info">
-                <p style="margin: 0, 0, 0, .5em; font-size:0.9rem; color:var(--text-muted)">
-                    Eingeloggt als <strong>{{ loggedInStudent.Fullname }}</strong><br>
-                    Lehrgang: {{ loggedInStudent.Year }}
-                </p>
                 <button class="user-login-button logout-btn" @click="logout"
                     style="margin-top:0.5rem; background:#ef4444;">
-                    Logout
+                    LogOut
                 </button>
             </div>
         </section>
@@ -74,9 +70,6 @@
             <section class="site-header">
                 <h2>Dashboard</h2>
                 <p class="subtitle">Übersicht Ihrer Zeiterfassung und Projekte</p>
-                <p v-if="isLoggedIn" style="margin-top:.5rem; color:var(--text-muted)">
-                    Eingeloggt als <strong>{{ loggedInStudent.Fullname }}</strong> (Lehrgang {{ loggedInStudent.Year }})
-                </p>
             </section>
 
 
