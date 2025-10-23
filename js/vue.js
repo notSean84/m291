@@ -1,5 +1,5 @@
 import { createApp, ref, computed, onMounted, watch }
-            from 'https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js'
+            from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
         const apiUrl = 'https://projects.sbw.media/'
 
         createApp({
@@ -416,6 +416,7 @@ import { createApp, ref, computed, onMounted, watch }
                 }
 
                 function editProject(p) {
+                    console.log('Editing project', p)
                     isEditingProject.value = true
                     projectError.value = null
                     projectForm.value = {

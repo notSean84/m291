@@ -241,11 +241,11 @@
                             <td>{{ typeName(p.TypeID) }}</td>
                             <td>{{ customerName(p.CustomerID) }}</td>
                             <td class="actions">
-                                <button class="edit-btn" @click="editProject(item)">
+                                <button type="button" class="edit-btn" @click="editProject(p)">
                                     <img src="assets/img/edit.svg">
                                 </button>
 
-                                <button class="delete-btn" @click="deleteProject(item.ID)">
+                                <button class="delete-btn" @click="deleteProject(p.ID)">
                                     <img src="assets/img/delete.svg">
                                 </button>
                             </td>
