@@ -20,6 +20,8 @@ Kleine Texte: 14px
 Überschrift (H2): 28px
 Unterüberschrift (H3): 18px
 
+![4927577B-7CF9-40C0-9C56-DF152ED5FA57_1_201_a](https://github.com/user-attachments/assets/586a410d-a99d-45ca-a265-885832b5ba6a)
+
 Validators:
 <img width="1455" height="522" alt="image" src="https://github.com/user-attachments/assets/771ab886-bc84-4566-9c0f-ae8a40e57f55" />
 
