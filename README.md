@@ -3,22 +3,22 @@
 StyleGuide:
 
 Farben:
-Weiß: #ffffff
-Schwarz (Text): #0f172a
-Grau (Sekundärtext): #64748b
-Blau (Hauptfarbe): #2563eb
-Grün: #16a34a
-Rot: #f75555
+* Weiss: #ffffff
+* Schwarz (Text): #0f172a
+* Grau (Sekundärtext): #64748b
+* Blau (Hauptfarbe): #2563eb
+* Grün: #16a34a
+* Rot: #f75555
 
 Schrift:
-Schriftart: Inter, sans-serif
-Schriftgewichte:     Normal: 400    Fett: 600–700
+* Schriftart: Inter, sans-serif
+* Schriftgewichte:     Normal: 400    Fett: 600–700
 
 Schriftgrössen:
-Fliesstext: 16px
-Kleine Texte: 14px
-Überschrift (H2): 28px
-Unterüberschrift (H3): 18px
+* Fliesstext: 16px
+* Kleine Texte: 14px
+* Überschrift (H2): 28px
+* Unterüberschrift (H3): 18px
 
 ![4927577B-7CF9-40C0-9C56-DF152ED5FA57_1_201_a](https://github.com/user-attachments/assets/586a410d-a99d-45ca-a265-885832b5ba6a)
 
